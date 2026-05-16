@@ -4,6 +4,7 @@ struct HomeView: View {
     var events: [Event] = PreviewData.sampleEvents
     var onCreateEvent: () -> Void = {}
     var onSelectEvent: (Event) -> Void = { _ in }
+    var onRefresh: () async -> Void = {}
 
     @State private var activeHomeTab: HomeTab = .upcoming
     @State private var activeBottomTab: BottomTab = .home
@@ -48,6 +49,7 @@ struct HomeView: View {
                 .padding(.top, BailSpacing.sm)
                 .padding(.bottom, 96)
             }
+            .refreshable { await onRefresh() }
         }
     }
 

@@ -56,7 +56,7 @@ struct CreateEventView: View {
                 let phones = contactsService.contacts
                     .filter { selectedContactIds.contains($0.id) }
                     .map { $0.phoneNumber }
-                let body = "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Download bail. to vote on whether it happens 👀"
+                let body = "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Open in bail. to vote: bail://event/\(event.id) 👀"
                 MessageComposer(recipients: phones, body: body) {
                     onComplete(event)
                 }

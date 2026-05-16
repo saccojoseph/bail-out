@@ -25,14 +25,20 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
-    func application(
+    nonisolated func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {
-        let notification = CKNotification(fromRemoteNotificationDictionary: userInfo)
+        // Build the dictionary CKNotification expects
+        var converted: [String: NSObject] = [:]
+        for (key, value) in userInfo {
+            if let stringKey = key as? String, let objValue = value as? NSObject {
+                converted[stringKey] = objValue
+            }
+        }
+        let notification = CKNotification(fromRemoteNotificationDictionary: converted)
 
         if notification?.subscriptionID == "vote-changes" {
-            // A vote was cast or changed — refresh events
             do {
                 try await CloudKitService.shared.fetchEvents()
                 return .newData

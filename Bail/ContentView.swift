@@ -34,6 +34,9 @@ struct ContentView: View {
                     onSelectEvent: { event in
                         selectedEvent = event
                         screen = .eventDetail
+                    },
+                    onRefresh: {
+                        try? await cloudKit.fetchEvents()
                     }
                 )
                 .transition(.opacity)
@@ -99,6 +102,9 @@ struct ContentView: View {
             Button("OK") { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "Something went wrong.")
+        }
+        .onOpenURL { url in
+            handleDeepLink(url)
         }
     }
 
@@ -224,9 +230,41 @@ struct ContentView: View {
         // Sync to CloudKit in background
         Task {
             do {
-                try await cloudKit.castVote(eventId: eventId, choice: choice)
+                _ = try await cloudKit.castVote(eventId: eventId, choice: choice)
             } catch {
                 errorMessage = "Vote couldn't sync: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    // MARK: - Deep Links (bail://event/<id>)
+
+    private func handleDeepLink(_ url: URL) {
+        guard url.scheme == "bail",
+              url.host == "event",
+              let eventId = url.pathComponents.dropFirst().first else {
+            return
+        }
+
+        // If the event is already loaded locally, navigate to it
+        if let event = cloudKit.events.first(where: { $0.id == eventId }) {
+            selectedEvent = event
+            screen = .eventDetail
+            return
+        }
+
+        // Otherwise fetch from CloudKit, then navigate
+        Task {
+            do {
+                try await cloudKit.fetchEvents()
+                if let event = cloudKit.events.first(where: { $0.id == eventId }) {
+                    selectedEvent = event
+                    screen = .eventDetail
+                } else {
+                    errorMessage = "Couldn't find that event."
+                }
+            } catch {
+                errorMessage = "Couldn't load event: \(error.localizedDescription)"
             }
         }
     }
