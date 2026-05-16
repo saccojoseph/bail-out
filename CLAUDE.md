@@ -6,7 +6,7 @@ Social app where friend groups anonymously vote to cancel plans. If enough peopl
 ## Tech Stack
 - Swift 5.9+, SwiftUI (all UI), Xcode 26 beta
 - Backend: CloudKit (public database, iCloud.com.sacco.bail-app container)
-- Auth: iCloud automatic (no sign-in screen — every iPhone user is authenticated)
+- Auth: iCloud automatic — session tracked via @AppStorage("hasCompletedOnboarding") + @AppStorage("hasSeenOnboarding")
 - Push: Silent push via CKSubscription for real-time vote sync
 - Local notifications: UNUserNotificationCenter
 - Contacts: CNContactStore + MFMessageComposeViewController for SMS invites
@@ -17,7 +17,7 @@ Social app where friend groups anonymously vote to cancel plans. If enough peopl
 ```
 Bail/
 ├── BailApp.swift              — @main entry + AppDelegate for push
-├── ContentView.swift          — screen routing, CloudKit state, deep links
+├── ContentView.swift          — screen routing, CloudKit state, all handlers, deep links
 ├── PreviewData.swift          — #if DEBUG sample data
 ├── Bail.entitlements          — CloudKit + push entitlements
 ├── Info.plist                 — Background Modes + URL scheme (bail://)
@@ -27,11 +27,12 @@ Bail/
 │   └── DateFormatting.swift   — shared Date extensions
 ├── Models/
 │   ├── User.swift
-│   ├── Event.swift            — Event, EventSummary, BailThreshold, EventStatus
+│   ├── Event.swift            — Event (+ isBailEvent field), EventSummary, BailThreshold, EventStatus
 │   ├── EventGuest.swift
 │   └── Vote.swift             — VoteChoice + CastVoteRequest (Encodable only)
 ├── Views/
-│   ├── Splash/SplashView.swift
+│   ├── Splash/SplashView.swift          — single "Sign in with Apple" button
+│   ├── Onboarding/OnboardingView.swift  — 3-screen swipeable tutorial, shown once
 │   ├── Home/HomeView.swift + EventCard.swift
 │   ├── CreateEvent/CreateEventView.swift
 │   ├── EventDetail/EventDetailView.swift
@@ -70,12 +71,32 @@ Bail/
 
 ## CloudKit Architecture
 - **Public database** — all users can read events they're invited to
-- **Record types**: BailEvent, BailGuest, BailVote (auto-created in Development environment)
+- **Record types**: BailEvent (has isBailEvent field), BailGuest, BailVote
 - **Local-first**: UI updates optimistically, syncs to CloudKit in background
 - **Anonymity**: CloudKit stores individual votes for aggregation, but app only queries counts
 - **Real-time**: CKQuerySubscription on BailVote → silent push → AppDelegate → fetchEvents()
 - **Guest matching**: Phone numbers normalized via PhoneNumberUtils for cross-device matching
 - **Deep links**: SMS includes `bail://event/<id>`, handled by .onOpenURL
+- **isBailEvent**: when false, no voting UI shown, no auto-cancel — plain event mode
+
+## CloudKitService Methods
+- `setup()` — checks iCloud status, fetches userRecordID
+- `createEvent(title:scheduledAt:location:threshold:isAnonymous:showBailOMeter:showVotingStatus:isBailEvent:guests:)` 
+- `castVote(eventId:choice:)` — wraps initial query in try-catch (schema may not exist on first vote)
+- `fetchEvents()` — fetches created + invited events, aggregates votes
+- `addGuest(eventId:displayName:phoneNumber:avatarColor:)`
+- `removeGuest(guestId:eventId:)`
+- `deleteEvent(eventId:)` — cascades via .deleteSelf references
+- `cancelEvent(eventId:)` — sets status to .cancelled
+- `updateEventTitle(eventId:newTitle:)`
+- `subscribeToVoteChanges()` — CKQuerySubscription, silent push
+
+## Session / Auth Flow
+- `@AppStorage("hasCompletedOnboarding")` — true after first "Sign in" tap
+- `@AppStorage("hasSeenOnboarding")` — true after completing 3-screen tutorial
+- Auto-skip splash only when BOTH are true (returning user)
+- Sign out resets both to false → back to splash
+- userName derived from UIDevice.current.name ("Joseph's iPhone" → "Joseph")
 
 ## Project Location
 - Xcode project: `/Users/josephsacco/Documents/Bail/Bail.xcodeproj`
@@ -86,28 +107,38 @@ Bail/
 - Xcode 26 beta with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` (strict concurrency)
 - PBXFileSystemSynchronizedRootGroup: files added to disk are auto-included in target
 - Portrait lock via INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone in pbxproj
-- Simulators: iPhone 17 series (iOS 26.5)
-- No physical device registered yet — simulator-only development
+- Deployment target: iOS 26.0 (supports real device on 26.4.2)
+- Real device: iPhone 16 Pro Max, iOS 26.4.2, Developer Mode enabled
 
 ## Current Status
-[x] All 6 screens built (Splash, Home, CreateEvent, EventDetail, Vote, Cancelled)
+[x] All 6 screens + Onboarding screen
 [x] Design tokens + shared date formatting
 [x] Models with anonymity contract enforced in types
-[x] CloudKit backend (events, guests, votes)
+[x] CloudKit backend (events, guests, votes, cancel, edit title)
 [x] Real-time vote sync via silent push
 [x] Contacts integration + SMS invites with deep links
 [x] Local notifications (reminders + cancellation alerts)
 [x] Pull-to-refresh on Home
 [x] App icon (light + dark variants)
 [x] Portrait lock
+[x] Profile tab (name, stats, sign out)
+[x] Empty states (upcoming + past tabs)
+[x] Skeleton loading cards with shimmer
+[x] Delete events (long-press context menu)
+[x] Contextual error messages
+[x] Add/remove guests after creation (contacts picker, multi-select)
+[x] Creator can cancel event or edit event name
+[x] "Just an event" mode — isBailEvent toggle in create flow
+[x] Vote button label: "Bail" (not "I'd Bail")
+[x] Single "Sign in with Apple" button on splash
+[x] 3-screen onboarding tutorial (shown once)
+[x] Tested on real device (iPhone 16 Pro Max, iOS 26.4.2)
 
 ## Next Steps
-1. Test on real device (CloudKit, contacts, SMS, push need real iPhone)
-2. Profile tab (show user's name, event count — currently placeholder)
-3. Empty states (friendly message when no events)
-4. Delete/archive events (swipe-to-delete or button)
-5. Loading states (skeleton cards while CloudKit fetches)
-6. Error handling polish (contextual errors instead of generic alerts)
+1. Verify vote CloudKit sync on real device (fixed try-catch, needs confirmation)
+2. Test SMS invite + deep link end-to-end on real device
+3. Test push notifications on real device
+4. App Store prep (screenshots, description, privacy policy)
 
 ## Commands
 - Build: Cmd+B in Xcode (or `xcodebuild -scheme Bail -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`)

@@ -45,6 +45,7 @@ struct Event: Identifiable, Codable {
     let isAnonymous: Bool
     let showBailOMeter: Bool
     let showVotingStatus: Bool
+    let isBailEvent: Bool   // false = plain event, no voting/auto-cancel
     let createdAt: Date
 }
 

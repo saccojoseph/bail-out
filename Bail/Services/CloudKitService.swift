@@ -61,6 +61,7 @@ final class CloudKitService: ObservableObject {
         isAnonymous: Bool,
         showBailOMeter: Bool,
         showVotingStatus: Bool,
+        isBailEvent: Bool,
         guests: [(displayName: String, phoneNumber: String, avatarColor: String)]
     ) async throws -> Event {
         guard let creatorID = userRecordID else {
@@ -78,6 +79,7 @@ final class CloudKitService: ObservableObject {
         eventRecord["isAnonymous"] = isAnonymous
         eventRecord["showBailOMeter"] = showBailOMeter
         eventRecord["showVotingStatus"] = showVotingStatus
+        eventRecord["isBailEvent"] = isBailEvent
         eventRecord["createdAt"] = Date()
 
         let savedEvent = try await database.save(eventRecord)
@@ -130,6 +132,7 @@ final class CloudKitService: ObservableObject {
             isAnonymous: isAnonymous,
             showBailOMeter: showBailOMeter,
             showVotingStatus: showVotingStatus,
+            isBailEvent: isBailEvent,
             createdAt: Date()
         )
 
@@ -147,25 +150,31 @@ final class CloudKitService: ObservableObject {
             throw CloudKitError.notAuthenticated
         }
 
-        let previousChoice = userVotes[eventId]
+        // Check if user already has a vote record for this event.
+        // Wrap in try-catch: if BailVote schema doesn't exist yet (first ever vote
+        // on this container), the query throws — treat that as "no existing vote".
+        var existingVoteRecord: CKRecord? = nil
+        do {
+            let predicate = NSPredicate(
+                format: "eventId == %@ AND voterId == %@",
+                CKRecord.Reference(
+                    recordID: CKRecord.ID(recordName: eventId),
+                    action: .deleteSelf
+                ),
+                voterID.recordName
+            )
+            let query = CKQuery(recordType: RecordType.vote, predicate: predicate)
+            let (existingVotes, _) = try await database.records(matching: query)
+            existingVoteRecord = existingVotes.first.flatMap { try? $0.1.get() }
+        } catch {
+            // Schema doesn't exist yet — first vote will create it
+            print("[CloudKit] Vote query failed (likely first vote): \(error.localizedDescription)")
+        }
 
-        // Check if user already has a vote record for this event
-        let predicate = NSPredicate(
-            format: "eventId == %@ AND voterId == %@",
-            CKRecord.Reference(
-                recordID: CKRecord.ID(recordName: eventId),
-                action: .deleteSelf
-            ),
-            voterID.recordName
-        )
-        let query = CKQuery(recordType: RecordType.vote, predicate: predicate)
-        let (existingVotes, _) = try await database.records(matching: query)
-
-        if let (existingID, existingResult) = existingVotes.first,
-           let existingRecord = try? existingResult.get() {
+        if let existing = existingVoteRecord {
             // Update existing vote
-            existingRecord["choice"] = choice.rawValue
-            try await database.save(existingRecord)
+            existing["choice"] = choice.rawValue
+            try await database.save(existing)
         } else {
             // Create new vote
             let voteRecord = CKRecord(recordType: RecordType.vote)
@@ -304,52 +313,156 @@ final class CloudKitService: ObservableObject {
             requiredBails: old.summary.requiredBails
         )
         let updated = Event(
-            id: old.id,
-            title: old.title,
-            scheduledAt: old.scheduledAt,
-            location: old.location,
-            creatorId: old.creatorId,
-            threshold: old.threshold,
-            status: newSummary.isCancelled ? .cancelled : old.status,
-            summary: newSummary,
-            guests: old.guests,
-            isAnonymous: old.isAnonymous,
-            showBailOMeter: old.showBailOMeter,
-            showVotingStatus: old.showVotingStatus,
+            id: old.id, title: old.title, scheduledAt: old.scheduledAt,
+            location: old.location, creatorId: old.creatorId,
+            threshold: old.threshold, status: newSummary.isCancelled ? .cancelled : old.status,
+            summary: newSummary, guests: old.guests,
+            isAnonymous: old.isAnonymous, showBailOMeter: old.showBailOMeter,
+            showVotingStatus: old.showVotingStatus, isBailEvent: old.isBailEvent,
             createdAt: old.createdAt
         )
         events[index] = updated
 
         // If newly cancelled, update the event status in CloudKit
         if newSummary.isCancelled && old.status != .cancelled {
-            try await markEventCancelled(eventId: eventId)
+            try await cancelEvent(eventId: eventId)
         }
 
         return updated
     }
 
-    // MARK: - Delete Event
+    // MARK: - Add / Remove Guests
 
-    /// Deletes an event and its associated guest/vote records from CloudKit.
-    func deleteEvent(eventId: String) async throws {
-        let recordID = CKRecord.ID(recordName: eventId)
+    /// Adds a new guest to an existing event in CloudKit and updates local state.
+    func addGuest(eventId: String, displayName: String, phoneNumber: String, avatarColor: String) async throws {
+        let eventRecordID = CKRecord.ID(recordName: eventId)
 
-        // Delete the event record (guests and votes use .deleteSelf action,
-        // so CloudKit automatically cascades the delete)
+        let guestRecord = CKRecord(recordType: RecordType.guest)
+        guestRecord["eventId"] = CKRecord.Reference(recordID: eventRecordID, action: .deleteSelf)
+        guestRecord["displayName"] = displayName
+        guestRecord["phoneNumber"] = PhoneNumberUtils.normalize(phoneNumber)
+        guestRecord["avatarColor"] = avatarColor
+        guestRecord["status"] = GuestStatus.pending.rawValue
+
+        let saved = try await database.save(guestRecord)
+
+        let newGuest = EventGuest(
+            id: saved.recordID.recordName,
+            eventId: eventId,
+            userId: "",
+            displayName: displayName,
+            phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
+            avatarColor: avatarColor,
+            status: .pending
+        )
+
+        if let index = events.firstIndex(where: { $0.id == eventId }) {
+            let old = events[index]
+            // Recalculate requiredBails with the new guest count
+            let newGuestCount = old.guests.count + 1
+            let requiredBails: Int
+            switch old.threshold {
+            case .all:      requiredBails = newGuestCount
+            case .majority: requiredBails = newGuestCount / 2 + 1
+            case .any:      requiredBails = 1
+            }
+            let newSummary = EventSummary(
+                bailCount: old.summary.bailCount,
+                totalVotes: old.summary.totalVotes,
+                requiredBails: requiredBails
+            )
+            events[index] = Event(
+                id: old.id, title: old.title, scheduledAt: old.scheduledAt,
+                location: old.location, creatorId: old.creatorId,
+                threshold: old.threshold, status: old.status, summary: newSummary,
+                guests: old.guests + [newGuest],
+                isAnonymous: old.isAnonymous, showBailOMeter: old.showBailOMeter,
+                showVotingStatus: old.showVotingStatus, isBailEvent: old.isBailEvent,
+                createdAt: old.createdAt
+            )
+        }
+    }
+
+    /// Removes a guest from an event in CloudKit and updates local state.
+    func removeGuest(guestId: String, eventId: String) async throws {
+        let recordID = CKRecord.ID(recordName: guestId)
         try await database.deleteRecord(withID: recordID)
 
-        // Remove from local state
+        if let index = events.firstIndex(where: { $0.id == eventId }) {
+            let old = events[index]
+            let updatedGuests = old.guests.filter { $0.id != guestId }
+            let requiredBails: Int
+            switch old.threshold {
+            case .all:      requiredBails = max(updatedGuests.count, 1)
+            case .majority: requiredBails = updatedGuests.count / 2 + 1
+            case .any:      requiredBails = 1
+            }
+            let newSummary = EventSummary(
+                bailCount: old.summary.bailCount,
+                totalVotes: old.summary.totalVotes,
+                requiredBails: requiredBails
+            )
+            events[index] = Event(
+                id: old.id, title: old.title, scheduledAt: old.scheduledAt,
+                location: old.location, creatorId: old.creatorId,
+                threshold: old.threshold, status: old.status, summary: newSummary,
+                guests: updatedGuests,
+                isAnonymous: old.isAnonymous, showBailOMeter: old.showBailOMeter,
+                showVotingStatus: old.showVotingStatus, isBailEvent: old.isBailEvent,
+                createdAt: old.createdAt
+            )
+        }
+    }
+
+    // MARK: - Delete Event
+
+    func deleteEvent(eventId: String) async throws {
+        let recordID = CKRecord.ID(recordName: eventId)
+        try await database.deleteRecord(withID: recordID)
         events.removeAll { $0.id == eventId }
         userVotes.removeValue(forKey: eventId)
     }
 
-    // MARK: - Cancel Event in CloudKit
+    // MARK: - Cancel / Edit Event
 
-    private func markEventCancelled(eventId: String) async throws {
+    /// Marks an event as cancelled in CloudKit and updates local state.
+    func cancelEvent(eventId: String) async throws {
         let recordID = CKRecord.ID(recordName: eventId)
         let record = try await database.record(for: recordID)
         record["status"] = EventStatus.cancelled.rawValue
         try await database.save(record)
+
+        if let index = events.firstIndex(where: { $0.id == eventId }) {
+            let old = events[index]
+            events[index] = Event(
+                id: old.id, title: old.title, scheduledAt: old.scheduledAt,
+                location: old.location, creatorId: old.creatorId,
+                threshold: old.threshold, status: .cancelled, summary: old.summary,
+                guests: old.guests, isAnonymous: old.isAnonymous,
+                showBailOMeter: old.showBailOMeter, showVotingStatus: old.showVotingStatus,
+                isBailEvent: old.isBailEvent, createdAt: old.createdAt
+            )
+        }
+    }
+
+    /// Updates the title of an event in CloudKit and local state.
+    func updateEventTitle(eventId: String, newTitle: String) async throws {
+        let recordID = CKRecord.ID(recordName: eventId)
+        let record = try await database.record(for: recordID)
+        record["title"] = newTitle
+        try await database.save(record)
+
+        if let index = events.firstIndex(where: { $0.id == eventId }) {
+            let old = events[index]
+            events[index] = Event(
+                id: old.id, title: newTitle, scheduledAt: old.scheduledAt,
+                location: old.location, creatorId: old.creatorId,
+                threshold: old.threshold, status: old.status, summary: old.summary,
+                guests: old.guests, isAnonymous: old.isAnonymous,
+                showBailOMeter: old.showBailOMeter, showVotingStatus: old.showVotingStatus,
+                isBailEvent: old.isBailEvent, createdAt: old.createdAt
+            )
+        }
     }
 
     // MARK: - Subscribe to vote changes
@@ -465,6 +578,7 @@ final class CloudKitService: ObservableObject {
             isAnonymous: record["isAnonymous"] as? Bool ?? true,
             showBailOMeter: record["showBailOMeter"] as? Bool ?? true,
             showVotingStatus: record["showVotingStatus"] as? Bool ?? true,
+            isBailEvent: record["isBailEvent"] as? Bool ?? true,
             createdAt: record["createdAt"] as? Date ?? Date()
         )
     }

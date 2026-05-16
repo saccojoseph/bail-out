@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct SplashView: View {
-    var onGetStarted: () -> Void = {}
     var onSignIn: () -> Void = {}
 
     var body: some View {
@@ -39,35 +38,30 @@ struct SplashView: View {
 
                 Spacer()
 
-                // CTA buttons
+                // Sign in
                 VStack(spacing: 12) {
-                    Button(action: onGetStarted) {
-                        Text("Get Started")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 18)
-                            .background(BailGradient.accent)
-                            .cornerRadius(BailRadius.lg)
-                            .shadow(
-                                color: BailColor.accentStart.opacity(0.35),
-                                radius: 15, x: 0, y: 8
-                            )
+                    Button(action: onSignIn) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "applelogo")
+                                .font(.system(size: 17, weight: .semibold))
+                            Text("Sign in with Apple")
+                                .font(.system(size: 17, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(BailGradient.accent)
+                        .cornerRadius(BailRadius.lg)
+                        .shadow(
+                            color: BailColor.accentStart.opacity(0.35),
+                            radius: 15, x: 0, y: 8
+                        )
                     }
 
-                    Button(action: onSignIn) {
-                        Text("Sign In")
-                            .font(.system(size: 17))
-                            .foregroundColor(Color(hex: "AAAAAA"))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 18)
-                            .background(BailColor.surface2)
-                            .cornerRadius(BailRadius.lg)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: BailRadius.lg)
-                                    .stroke(Color(hex: "333333"), lineWidth: 1)
-                            )
-                    }
+                    Text("Uses your iCloud account — no password needed.")
+                        .font(.system(size: 12))
+                        .foregroundColor(BailColor.textMuted)
+                        .multilineTextAlignment(.center)
                 }
 
                 Text("Everyone secretly votes. No blame. No awkward texts.")
@@ -83,8 +77,5 @@ struct SplashView: View {
 }
 
 #Preview {
-    SplashView(
-        onGetStarted: { print("Get Started tapped") },
-        onSignIn:     { print("Sign In tapped") }
-    )
+    SplashView(onSignIn: { print("Sign In tapped") })
 }

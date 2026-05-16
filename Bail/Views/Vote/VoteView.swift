@@ -82,7 +82,7 @@ struct VoteView: View {
                 voteCard(
                     choice: .bail,
                     icon: "🚪",
-                    label: "I'd Bail",
+                    label: "Bail",
                     subtitle: "Secretly opt out"
                 )
             }

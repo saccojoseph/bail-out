@@ -1,8 +1,11 @@
 import SwiftUI
 import UserNotifications
+import UIKit
+import CloudKit
 
 enum AppScreen {
     case splash
+    case onboarding
     case home
     case createEvent
     case eventDetail
@@ -17,15 +20,30 @@ struct ContentView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var errorTitle: String = "Something went wrong"
+    @State private var userName: String = "there"
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     var body: some View {
         ZStack {
             switch screen {
             case .splash:
                 SplashView(
-                    onGetStarted: { startApp() },
-                    onSignIn:     { startApp() }
+                    onSignIn: { startApp() }
                 )
+                .transition(.opacity)
+                .onAppear {
+                    // Only auto-skip splash for returning users who've completed onboarding
+                    if hasCompletedOnboarding && hasSeenOnboarding {
+                        startApp()
+                    }
+                }
+
+            case .onboarding:
+                OnboardingView(onDone: {
+                    hasSeenOnboarding = true
+                    screen = .home
+                })
                 .transition(.opacity)
 
             case .home:
@@ -43,7 +61,8 @@ struct ContentView: View {
                     },
                     onRefresh: {
                         try? await cloudKit.fetchEvents()
-                    }
+                    },
+                    onSignOut: { handleSignOut() }
                 )
                 .transition(.opacity)
 
@@ -61,8 +80,19 @@ struct ContentView: View {
                     EventDetailView(
                         event: event,
                         userVote: cloudKit.userVotes[event.id],
+                        isCreator: cloudKit.userRecordID?.recordName == event.creatorId,
                         onBack: { screen = .home },
-                        onVote: { screen = .vote }
+                        onVote: { screen = .vote },
+                        onAddGuests: { guests in
+                            for g in guests {
+                                handleAddGuest(eventId: event.id, name: g.name, phone: g.phone, color: g.color)
+                            }
+                        },
+                        onRemoveGuest: { guestId in
+                            handleRemoveGuest(guestId: guestId, eventId: event.id)
+                        },
+                        onCancelEvent: { handleCancelEvent(eventId: event.id) },
+                        onEditTitle: { newTitle in handleEditTitle(eventId: event.id, newTitle: newTitle) }
                     )
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
@@ -117,14 +147,14 @@ struct ContentView: View {
         }
     }
 
-    /// Display name derived from iCloud user record, with fallback
-    private var userName: String {
-        if let id = cloudKit.userRecordID {
-            // CKRecord.ID.recordName is a UUID-like string — not user-friendly.
-            // We'll use a friendly default until we fetch the real name.
-            return "there"
+    /// Derives a first name from the device name (e.g. "Joseph's iPhone" → "Joseph").
+    private func fetchUserName() async {
+        let deviceName = await UIDevice.current.name
+        // Device names are typically "Joseph's iPhone" or "Joseph's iPhone 16 Pro"
+        if let firstName = deviceName.components(separatedBy: "'").first,
+           !firstName.isEmpty {
+            userName = firstName
         }
-        return "there"
     }
 
     private var showingError: Binding<Bool> {
@@ -138,8 +168,10 @@ struct ContentView: View {
 
     private func startApp() {
         isLoading = true
+        hasCompletedOnboarding = true
         Task {
             await cloudKit.setup()
+            await fetchUserName()
 
             if cloudKit.iCloudAvailable {
                 do {
@@ -152,7 +184,7 @@ struct ContentView: View {
             }
 
             isLoading = false
-            screen = .home
+            screen = hasSeenOnboarding ? .home : .onboarding
         }
     }
 
@@ -182,6 +214,7 @@ struct ContentView: View {
                     isAnonymous: localEvent.isAnonymous,
                     showBailOMeter: localEvent.showBailOMeter,
                     showVotingStatus: localEvent.showVotingStatus,
+                    isBailEvent: localEvent.isBailEvent,
                     guests: guests
                 )
                 // Replace local placeholder with CloudKit version (has real IDs)
@@ -233,6 +266,7 @@ struct ContentView: View {
                 isAnonymous: old.isAnonymous,
                 showBailOMeter: old.showBailOMeter,
                 showVotingStatus: old.showVotingStatus,
+                isBailEvent: old.isBailEvent,
                 createdAt: old.createdAt
             )
             cloudKit.events[index] = updated
@@ -254,6 +288,117 @@ struct ContentView: View {
             } catch {
                 errorTitle = "Vote didn't sync"
                 errorMessage = "Your vote was saved locally but couldn't reach iCloud. Don't worry — it'll sync automatically."
+            }
+        }
+    }
+
+    // MARK: - Sign Out
+
+    private func handleSignOut() {
+        // Clear all local state
+        cloudKit.events = []
+        cloudKit.userVotes = [:]
+        selectedEvent = nil
+        userName = "there"
+        hasCompletedOnboarding = false
+        hasSeenOnboarding = false
+        screen = .splash
+    }
+
+    // MARK: - Add / Remove Guest
+
+    private func handleAddGuest(eventId: String, name: String, phone: String, color: String) {
+        Task {
+            do {
+                try await cloudKit.addGuest(eventId: eventId, displayName: name,
+                                            phoneNumber: phone, avatarColor: color)
+                selectedEvent = cloudKit.events.first { $0.id == eventId }
+            } catch {
+                errorTitle = "Couldn't add person"
+                errorMessage = "There was a problem saving to iCloud. Try again."
+            }
+        }
+    }
+
+    private func handleRemoveGuest(guestId: String, eventId: String) {
+        // Optimistic local removal
+        if let index = cloudKit.events.firstIndex(where: { $0.id == eventId }) {
+            let old = cloudKit.events[index]
+            let updated = Event(
+                id: old.id, title: old.title, scheduledAt: old.scheduledAt,
+                location: old.location, creatorId: old.creatorId,
+                threshold: old.threshold, status: old.status, summary: old.summary,
+                guests: old.guests.filter { $0.id != guestId },
+                isAnonymous: old.isAnonymous, showBailOMeter: old.showBailOMeter,
+                showVotingStatus: old.showVotingStatus, isBailEvent: old.isBailEvent,
+                createdAt: old.createdAt
+            )
+            cloudKit.events[index] = updated
+            selectedEvent = updated
+        }
+        Task {
+            do {
+                try await cloudKit.removeGuest(guestId: guestId, eventId: eventId)
+            } catch {
+                errorTitle = "Couldn't remove person"
+                errorMessage = "There was a problem syncing to iCloud."
+                try? await cloudKit.fetchEvents()
+                selectedEvent = cloudKit.events.first { $0.id == eventId }
+            }
+        }
+    }
+
+    // MARK: - Cancel Event (creator)
+
+    private func handleCancelEvent(eventId: String) {
+        // Optimistic update
+        if let index = cloudKit.events.firstIndex(where: { $0.id == eventId }) {
+            let old = cloudKit.events[index]
+            let updated = Event(
+                id: old.id, title: old.title, scheduledAt: old.scheduledAt,
+                location: old.location, creatorId: old.creatorId,
+                threshold: old.threshold, status: .cancelled, summary: old.summary,
+                guests: old.guests, isAnonymous: old.isAnonymous,
+                showBailOMeter: old.showBailOMeter, showVotingStatus: old.showVotingStatus,
+                isBailEvent: old.isBailEvent, createdAt: old.createdAt
+            )
+            cloudKit.events[index] = updated
+            selectedEvent = updated
+            NotificationService.shared.cancelPending(for: eventId)
+            NotificationService.shared.scheduleCancellation(for: updated)
+            screen = .cancelled
+        }
+        Task {
+            do { try await cloudKit.cancelEvent(eventId: eventId) }
+            catch {
+                errorTitle = "Couldn't cancel plan"
+                errorMessage = "The plan was cancelled locally but couldn't sync to iCloud."
+            }
+        }
+    }
+
+    // MARK: - Edit Event Title (creator)
+
+    private func handleEditTitle(eventId: String, newTitle: String) {
+        // Optimistic update
+        if let index = cloudKit.events.firstIndex(where: { $0.id == eventId }) {
+            let old = cloudKit.events[index]
+            let updated = Event(
+                id: old.id, title: newTitle, scheduledAt: old.scheduledAt,
+                location: old.location, creatorId: old.creatorId,
+                threshold: old.threshold, status: old.status, summary: old.summary,
+                guests: old.guests, isAnonymous: old.isAnonymous,
+                showBailOMeter: old.showBailOMeter, showVotingStatus: old.showVotingStatus,
+                isBailEvent: old.isBailEvent, createdAt: old.createdAt
+            )
+            cloudKit.events[index] = updated
+            selectedEvent = updated
+        }
+        Task {
+            do { try await cloudKit.updateEventTitle(eventId: eventId, newTitle: newTitle) }
+            catch {
+                errorTitle = "Couldn't update title"
+                errorMessage = "The name was saved locally but couldn't sync to iCloud."
             }
         }
     }

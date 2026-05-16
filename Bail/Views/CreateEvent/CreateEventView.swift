@@ -14,6 +14,7 @@ struct CreateEventView: View {
     @State private var selectedContactIds: Set<String> = []
     @State private var searchText = ""
     @State private var threshold: BailThreshold = .majority
+    @State private var isBailEvent = true
     @State private var isAnonymous = true
     @State private var showBailOMeter = true
     @State private var showVotingStatus = true
@@ -337,15 +338,24 @@ struct CreateEventView: View {
     private var step3: some View {
         VStack(alignment: .leading, spacing: 24) {
 
-            // Section 1: Bail rules
+            // "Just an event" master toggle
+            privacyToggle(
+                title: "Enable bail voting",
+                subtitle: isBailEvent
+                    ? "Friends can vote to bail — plan auto-cancels if enough do"
+                    : "This is just an event — no voting, no auto-cancel",
+                isOn: $isBailEvent
+            )
+
+            // Section 1: Bail rules (greyed out when bail voting is off)
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Bail Rules")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(BailColor.textPrimary)
+                        .foregroundColor(isBailEvent ? BailColor.textPrimary : BailColor.textMuted)
                     Text("How many bails to auto-cancel?")
                         .font(.system(size: 13))
-                        .foregroundColor(BailColor.textSecondary)
+                        .foregroundColor(isBailEvent ? BailColor.textSecondary : BailColor.textMuted)
                 }
                 VStack(spacing: 10) {
                     ForEach([BailThreshold.all, .majority, .any], id: \.self) { option in
@@ -353,21 +363,25 @@ struct CreateEventView: View {
                     }
                 }
             }
+            .opacity(isBailEvent ? 1 : 0.35)
+            .disabled(!isBailEvent)
 
             Rectangle()
                 .fill(BailColor.border)
                 .frame(height: 1)
 
-            // Section 2: Privacy
+            // Section 2: Privacy (greyed out when bail voting is off)
             VStack(alignment: .leading, spacing: 12) {
                 Text("Privacy")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(BailColor.textPrimary)
+                    .foregroundColor(isBailEvent ? BailColor.textPrimary : BailColor.textMuted)
 
                 anonymityToggle
                 bailOMeterToggle
                 votingStatusToggle
             }
+            .opacity(isBailEvent ? 1 : 0.35)
+            .disabled(!isBailEvent)
         }
     }
 
@@ -479,7 +493,7 @@ struct CreateEventView: View {
 
     private var continueButton: some View {
         Button(action: advance) {
-            Text(currentStep < 3 ? "Continue →" : "Send Invites 🚀")
+            Text(currentStep < 3 ? "Continue →" : "Send Invites")
                 .font(.system(size: 17, weight: .bold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -542,6 +556,7 @@ struct CreateEventView: View {
             isAnonymous: isAnonymous,
             showBailOMeter: showBailOMeter,
             showVotingStatus: showVotingStatus,
+            isBailEvent: isBailEvent,
             createdAt: Date()
         )
     }

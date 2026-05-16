@@ -8,6 +8,7 @@ struct HomeView: View {
     var onSelectEvent: (Event) -> Void = { _ in }
     var onDeleteEvent: (String) -> Void = { _ in }
     var onRefresh: () async -> Void = {}
+    var onSignOut: () -> Void = {}
 
     @State private var activeHomeTab: HomeTab = .upcoming
     @State private var activeBottomTab: BottomTab = .home
@@ -316,6 +317,21 @@ struct HomeView: View {
                         RoundedRectangle(cornerRadius: BailRadius.xl)
                             .stroke(Color(hex: "222222"), lineWidth: 1)
                     )
+
+                    // Sign out
+                    Button(action: onSignOut) {
+                        Text("Sign Out")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(BailColor.accentStart)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(BailColor.surface)
+                            .cornerRadius(BailRadius.xl)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: BailRadius.xl)
+                                    .stroke(Color(hex: "222222"), lineWidth: 1)
+                            )
+                    }
                 }
                 .padding(.horizontal, BailSpacing.lg)
                 .padding(.bottom, 96)

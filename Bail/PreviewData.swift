@@ -24,6 +24,7 @@ enum PreviewData {
             isAnonymous: true,
             showBailOMeter: true,
             showVotingStatus: true,
+            isBailEvent: true,
             createdAt: Date()
         ),
         Event(
@@ -39,6 +40,7 @@ enum PreviewData {
             isAnonymous: false,
             showBailOMeter: false,
             showVotingStatus: false,
+            isBailEvent: false,
             createdAt: Date()
         ),
     ]
