@@ -66,7 +66,7 @@ struct VoteView: View {
 
                 Text("Your vote is completely secret.\nNo one will ever know what you chose.")
                     .font(.system(size: 13))
-                    .foregroundColor(Color(hex: "555555"))
+                    .foregroundColor(BailColor.textSubtle)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
                     .padding(.top, 4)
@@ -89,7 +89,7 @@ struct VoteView: View {
 
             Text("🔒 Encrypted · Anonymous · Nobody sees this")
                 .font(.system(size: 11))
-                .foregroundColor(Color(hex: "333333"))
+                .foregroundColor(BailColor.textMuted)
         }
     }
 

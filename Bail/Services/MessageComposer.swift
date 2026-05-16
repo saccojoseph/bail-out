@@ -6,6 +6,7 @@ struct MessageComposer: UIViewControllerRepresentable {
     let recipients: [String]
     let body: String
     var onFinish: () -> Void = {}
+    var onSent: () -> Void = {}   // fires only when the user actually tapped Send
 
     func makeUIViewController(context: Context) -> MFMessageComposeViewController {
         let vc = MFMessageComposeViewController()
@@ -17,17 +18,22 @@ struct MessageComposer: UIViewControllerRepresentable {
 
     func updateUIViewController(_ vc: MFMessageComposeViewController, context: Context) {}
 
-    func makeCoordinator() -> Coordinator { Coordinator(onFinish: onFinish) }
+    func makeCoordinator() -> Coordinator { Coordinator(onFinish: onFinish, onSent: onSent) }
 
     class Coordinator: NSObject, MFMessageComposeViewControllerDelegate {
         let onFinish: () -> Void
-        init(onFinish: @escaping () -> Void) { self.onFinish = onFinish }
+        let onSent: () -> Void
+        init(onFinish: @escaping () -> Void, onSent: @escaping () -> Void) {
+            self.onFinish = onFinish
+            self.onSent = onSent
+        }
 
         func messageComposeViewController(
             _ controller: MFMessageComposeViewController,
             didFinishWith result: MessageComposeResult
         ) {
             controller.dismiss(animated: true)
+            if result == .sent { onSent() }
             onFinish()
         }
     }

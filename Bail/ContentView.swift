@@ -130,7 +130,7 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: screen)
-        .preferredColorScheme(.dark)
+        
         .task {
             await NotificationService.shared.requestPermission()
         }

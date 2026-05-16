@@ -16,7 +16,7 @@ struct EventCard: View {
         .cornerRadius(BailRadius.xl)
         .overlay(
             RoundedRectangle(cornerRadius: BailRadius.xl)
-                .stroke(Color(hex: "222222"), lineWidth: 1)
+                .stroke(BailColor.cardBorder, lineWidth: 1)
         )
     }
 
@@ -70,7 +70,7 @@ struct EventCard: View {
             }
             Text("\(event.guests.count) invited")
                 .font(.system(size: 12))
-                .foregroundColor(Color(hex: "555555"))
+                .foregroundColor(BailColor.textSubtle)
                 .padding(.leading, 12)
         }
     }
@@ -82,16 +82,16 @@ struct EventCard: View {
             HStack {
                 Text("BAIL-O-METER")
                     .font(.system(size: 11))
-                    .foregroundColor(Color(hex: "555555"))
+                    .foregroundColor(BailColor.textSubtle)
                 Spacer()
                 Text("\(event.summary.bailCount)/\(event.summary.requiredBails) to cancel")
                     .font(.system(size: 11))
-                    .foregroundColor(Color(hex: "555555"))
+                    .foregroundColor(BailColor.textSubtle)
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(hex: "222222"))
+                        .fill(BailColor.cardBorder)
                     RoundedRectangle(cornerRadius: 4)
                         .fill(BailGradient.accentHorizontal)
                         .frame(width: geo.size.width * event.summary.progress)

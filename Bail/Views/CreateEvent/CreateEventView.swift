@@ -1,9 +1,13 @@
 import SwiftUI
 import Contacts
+import StoreKit
 
 struct CreateEventView: View {
     var onDismiss: () -> Void = {}
     var onComplete: (Event) -> Void = { _ in }
+
+    @Environment(\.requestReview) private var requestReview
+    @AppStorage("hasSentFirstInvite") private var hasSentFirstInvite = false
 
     @StateObject private var contactsService = ContactsService()
 
@@ -21,6 +25,8 @@ struct CreateEventView: View {
 
     @State private var pendingEvent: Event? = nil
     @State private var showingMessageComposer = false
+    @State private var messageRecipients: [String] = []
+    @State private var messageBody: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -53,16 +59,18 @@ struct CreateEventView: View {
         }
 #if os(iOS)
         .sheet(isPresented: $showingMessageComposer) {
-            if let event = pendingEvent {
-                let phones = contactsService.contacts
-                    .filter { selectedContactIds.contains($0.id) }
-                    .map { $0.phoneNumber }
-                let body = "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Open in bail. to vote: bail://event/\(event.id) 👀"
-                MessageComposer(recipients: phones, body: body) {
-                    onComplete(event)
+            MessageComposer(recipients: messageRecipients, body: messageBody) {
+                if let event = pendingEvent { onComplete(event) }
+            } onSent: {
+                if !hasSentFirstInvite {
+                    hasSentFirstInvite = true
+                    // Small delay so the sheet has fully dismissed before the prompt appears
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        requestReview()
+                    }
                 }
-                .ignoresSafeArea()
             }
+            .ignoresSafeArea()
         }
 #endif
     }
@@ -107,7 +115,7 @@ struct CreateEventView: View {
                     .fill(
                         step <= currentStep
                             ? AnyShapeStyle(BailGradient.accentHorizontal)
-                            : AnyShapeStyle(Color(hex: "222222"))
+                            : AnyShapeStyle(BailColor.cardBorder)
                     )
                     .frame(height: 3)
             }
@@ -273,11 +281,11 @@ struct CreateEventView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(isSelected ? BailColor.surface2 : Color(hex: "111111"))
+            .background(isSelected ? BailColor.surface2 : BailColor.surface)
             .cornerRadius(BailRadius.lg)
             .overlay(
                 RoundedRectangle(cornerRadius: BailRadius.lg)
-                    .stroke(isSelected ? BailColor.accentStart : Color(hex: "222222"), lineWidth: 1)
+                    .stroke(isSelected ? BailColor.accentStart : BailColor.cardBorder, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -394,16 +402,16 @@ struct CreateEventView: View {
                     .foregroundColor(BailColor.textPrimary)
                 Text(option.description)
                     .font(.system(size: 12))
-                    .foregroundColor(Color(hex: "555555"))
+                    .foregroundColor(BailColor.textSubtle)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 18)
             .padding(.vertical, 16)
-            .background(isSelected ? BailColor.surface2 : Color(hex: "111111"))
+            .background(isSelected ? BailColor.surface2 : BailColor.surface)
             .cornerRadius(BailRadius.lg)
             .overlay(
                 RoundedRectangle(cornerRadius: BailRadius.lg)
-                    .stroke(isSelected ? BailColor.accentStart : Color(hex: "222222"), lineWidth: 1)
+                    .stroke(isSelected ? BailColor.accentStart : BailColor.cardBorder, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -512,6 +520,10 @@ struct CreateEventView: View {
             pendingEvent = event
 #if os(iOS)
             if MessageComposer.canSend && !selectedContactIds.isEmpty {
+                messageRecipients = contactsService.contacts
+                    .filter { selectedContactIds.contains($0.id) }
+                    .map { $0.phoneNumber }
+                messageBody = "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Open in bail. to vote: bail://event/\(event.id) 👀"
                 showingMessageComposer = true
             } else {
                 onComplete(event)

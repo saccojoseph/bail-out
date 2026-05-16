@@ -21,6 +21,9 @@ struct EventDetailView: View {
     @State private var showCancelConfirm = false
     @State private var showEditTitle = false
     @State private var editedTitle = ""
+    @State private var showingMessageComposer = false
+    @State private var messageRecipients: [String] = []
+    @State private var messageBody: String = ""
 
     var body: some View {
         ZStack {
@@ -55,6 +58,12 @@ struct EventDetailView: View {
         .sheet(isPresented: $showEditTitle) {
             editTitleSheet
         }
+#if os(iOS)
+        .sheet(isPresented: $showingMessageComposer) {
+            MessageComposer(recipients: messageRecipients, body: messageBody) {}
+                .ignoresSafeArea()
+        }
+#endif
         .confirmationDialog("Cancel this plan?", isPresented: $showCancelConfirm, titleVisibility: .visible) {
             Button("Yes, cancel it", role: .destructive) { onCancelEvent() }
             Button("Never mind", role: .cancel) {}
@@ -106,7 +115,7 @@ struct EventDetailView: View {
             if let location = event.location {
                 Text("📍 \(location)")
                     .font(.system(size: 14))
-                    .foregroundColor(Color(hex: "555555"))
+                    .foregroundColor(BailColor.textSubtle)
                     .padding(.top, 2)
             }
         }
@@ -126,7 +135,7 @@ struct EventDetailView: View {
                 .cornerRadius(BailRadius.xl)
                 .overlay(
                     RoundedRectangle(cornerRadius: BailRadius.xl)
-                        .stroke(Color(hex: "222222"), lineWidth: 1)
+                        .stroke(BailColor.cardBorder, lineWidth: 1)
                 )
         }
     }
@@ -177,7 +186,7 @@ struct EventDetailView: View {
                     .disabled(editedTitle.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
-            .preferredColorScheme(.dark)
+            
         }
     }
 
@@ -239,7 +248,7 @@ struct EventDetailView: View {
         .cornerRadius(BailRadius.xl)
         .overlay(
             RoundedRectangle(cornerRadius: BailRadius.xl)
-                .stroke(Color(hex: "222222"), lineWidth: 1)
+                .stroke(BailColor.cardBorder, lineWidth: 1)
         )
     }
 
@@ -280,7 +289,7 @@ struct EventDetailView: View {
                         .disabled(!canConfirmAdd)
                 }
             }
-            .preferredColorScheme(.dark)
+            
             .task { await contactsService.requestAccess() }
         }
     }
@@ -404,11 +413,11 @@ struct EventDetailView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
-            .background(isSelected ? BailColor.surface2 : Color(hex: "111111"))
+            .background(isSelected ? BailColor.surface2 : BailColor.surface)
             .cornerRadius(BailRadius.lg)
             .overlay(
                 RoundedRectangle(cornerRadius: BailRadius.lg)
-                    .stroke(isSelected ? BailColor.accentStart : Color(hex: "222222"), lineWidth: 1)
+                    .stroke(isSelected ? BailColor.accentStart : BailColor.cardBorder, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -464,7 +473,21 @@ struct EventDetailView: View {
         }
 
         if !toAdd.isEmpty { onAddGuests(toAdd) }
+
+        // Collect phone numbers to text (skip manual entries with no phone)
+        let phones = toAdd.compactMap { $0.phone.isEmpty ? nil : $0.phone }
         dismissAddSheet()
+
+#if os(iOS)
+        if MessageComposer.canSend && !phones.isEmpty {
+            messageRecipients = phones
+            messageBody = "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Open in bail. to vote: bail://event/\(event.id) 👀"
+            // Small delay so the add-guest sheet finishes dismissing before iMessage slides up
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                showingMessageComposer = true
+            }
+        }
+#endif
     }
 
     private func dismissAddSheet() {
@@ -492,7 +515,7 @@ struct EventDetailView: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(hex: "222222"))
+                        .fill(BailColor.cardBorder)
                     RoundedRectangle(cornerRadius: 8)
                         .fill(BailGradient.accentHorizontal)
                         .frame(width: geo.size.width * event.summary.progress)
@@ -502,14 +525,14 @@ struct EventDetailView: View {
             .frame(height: 8)
             Text("\(event.summary.bailCount) anonymous bail\(event.summary.bailCount == 1 ? "" : "s") recorded")
                 .font(.system(size: 12))
-                .foregroundColor(Color(hex: "555555"))
+                .foregroundColor(BailColor.textSubtle)
         }
         .padding(18)
         .background(BailColor.surface)
         .cornerRadius(BailRadius.xl)
         .overlay(
             RoundedRectangle(cornerRadius: BailRadius.xl)
-                .stroke(Color(hex: "222222"), lineWidth: 1)
+                .stroke(BailColor.cardBorder, lineWidth: 1)
         )
     }
 

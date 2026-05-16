@@ -83,9 +83,13 @@ struct HomeView: View {
 
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Text(activeHomeTab == .upcoming ? "🎉" : "💀")
-                .font(.system(size: 48))
-                .padding(.top, BailSpacing.xl)
+            if activeHomeTab == .past {
+                Text("💀")
+                    .font(.system(size: 48))
+                    .padding(.top, BailSpacing.xl)
+            } else {
+                Color.clear.frame(height: BailSpacing.xl)
+            }
 
             Text(activeHomeTab == .upcoming
                  ? "No plans yet"
@@ -149,7 +153,7 @@ struct HomeView: View {
         .cornerRadius(BailRadius.xl)
         .overlay(
             RoundedRectangle(cornerRadius: BailRadius.xl)
-                .stroke(Color(hex: "222222"), lineWidth: 1)
+                .stroke(BailColor.cardBorder, lineWidth: 1)
         )
         .shimmer(isActive: true)
     }
@@ -226,7 +230,7 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, BailSpacing.lg)
-            .background(Color(hex: "0F0F0F"))
+            .background(BailColor.surfaceDeep)
             .cornerRadius(BailRadius.xl)
             .overlay(
                 RoundedRectangle(cornerRadius: BailRadius.xl)
@@ -295,7 +299,7 @@ struct HomeView: View {
                     .cornerRadius(BailRadius.xl)
                     .overlay(
                         RoundedRectangle(cornerRadius: BailRadius.xl)
-                            .stroke(Color(hex: "222222"), lineWidth: 1)
+                            .stroke(BailColor.cardBorder, lineWidth: 1)
                     )
 
                     // Info card
@@ -315,8 +319,55 @@ struct HomeView: View {
                     .cornerRadius(BailRadius.xl)
                     .overlay(
                         RoundedRectangle(cornerRadius: BailRadius.xl)
-                            .stroke(Color(hex: "222222"), lineWidth: 1)
+                            .stroke(BailColor.cardBorder, lineWidth: 1)
                     )
+
+                    // Feedback
+                    VStack(spacing: 10) {
+                        Link(destination: URL(string: "mailto:bail.app.official@gmail.com?subject=Bail%20-%20Report%20Bug")!) {
+                            HStack {
+                                Text("🐛")
+                                Text("Report Bug")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(BailColor.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(BailColor.textMuted)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 16)
+                            .background(BailColor.surface)
+                            .cornerRadius(BailRadius.xl)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: BailRadius.xl)
+                                    .stroke(BailColor.cardBorder, lineWidth: 1)
+                            )
+                        }
+
+                        Link(destination: URL(string: "mailto:bail.app.official@gmail.com?subject=Bail%20-%20Request%20Feature")!) {
+                            HStack {
+                                Text("💡")
+                                Text("Request Feature")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(BailColor.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(BailColor.textMuted)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 16)
+                            .background(BailColor.surface)
+                            .cornerRadius(BailRadius.xl)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: BailRadius.xl)
+                                    .stroke(BailColor.cardBorder, lineWidth: 1)
+                            )
+                        }
+                    }
 
                     // Sign out
                     Button(action: onSignOut) {
@@ -329,7 +380,7 @@ struct HomeView: View {
                             .cornerRadius(BailRadius.xl)
                             .overlay(
                                 RoundedRectangle(cornerRadius: BailRadius.xl)
-                                    .stroke(Color(hex: "222222"), lineWidth: 1)
+                                    .stroke(BailColor.cardBorder, lineWidth: 1)
                             )
                     }
                 }
@@ -382,7 +433,7 @@ struct HomeView: View {
             }
         }
         .frame(height: 80)
-        .background(Color(hex: "0F0F0F"))
+        .background(BailColor.surfaceDeep)
         .overlay(
             Rectangle()
                 .frame(height: 1)

@@ -1,19 +1,50 @@
 import SwiftUI
+import UIKit
+
+// MARK: - Adaptive color helper
+
+private extension UIColor {
+    /// Creates a color that automatically switches between light and dark appearances.
+    static func adaptive(light: String, dark: String) -> UIColor {
+        UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) }
+    }
+
+    convenience init(hex: String) {
+        var int: UInt64 = 0
+        Scanner(string: hex.trimmingCharacters(in: .alphanumerics.inverted)).scanHexInt64(&int)
+        self.init(
+            red:   CGFloat((int >> 16) & 0xFF) / 255,
+            green: CGFloat((int >> 8)  & 0xFF) / 255,
+            blue:  CGFloat( int        & 0xFF) / 255,
+            alpha: 1
+        )
+    }
+}
 
 // MARK: - Colors
 
 enum BailColor {
-    static let background  = Color(hex: "0A0A0A")
-    static let surface     = Color(hex: "141414")
-    static let surface2    = Color(hex: "1A1A1A")
-    static let border      = Color(hex: "2A2A2A")
+    // Backgrounds
+    static let background  = Color(UIColor.adaptive(light: "F2F2F7", dark: "0A0A0A"))
+    static let surface     = Color(UIColor.adaptive(light: "FFFFFF", dark: "141414"))
+    static let surface2    = Color(UIColor.adaptive(light: "F0F0F0", dark: "1A1A1A"))
+    static let surfaceDeep = Color(UIColor.adaptive(light: "E8E8ED", dark: "0F0F0F"))
+
+    // Borders
+    static let border      = Color(UIColor.adaptive(light: "D8D8D8", dark: "2A2A2A"))
+    static let cardBorder  = Color(UIColor.adaptive(light: "E0E0E0", dark: "222222"))
+
+    // Accent (same in both modes)
     static let accentStart = Color(hex: "FF4458")
     static let accentEnd   = Color(hex: "FF6B35")
     static let teal        = Color(hex: "4ECDC4")
     static let tealEnd     = Color(hex: "2EC4B6")
-    static let textPrimary   = Color(hex: "FFFFFF")
-    static let textSecondary = Color(hex: "666666")
-    static let textMuted     = Color(hex: "444444")
+
+    // Text
+    static let textPrimary   = Color(UIColor.adaptive(light: "000000", dark: "FFFFFF"))
+    static let textSecondary = Color(UIColor.adaptive(light: "555555", dark: "666666"))
+    static let textSubtle    = Color(UIColor.adaptive(light: "888888", dark: "555555"))
+    static let textMuted     = Color(UIColor.adaptive(light: "AAAAAA", dark: "444444"))
 }
 
 // MARK: - Gradients

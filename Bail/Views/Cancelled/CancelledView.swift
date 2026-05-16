@@ -6,7 +6,7 @@ struct CancelledView: View {
 
     var body: some View {
         ZStack {
-            Color(hex: "080808").ignoresSafeArea()
+            BailColor.surfaceDeep.ignoresSafeArea()
 
             VStack(spacing: 20) {
                 Spacer()
@@ -38,7 +38,7 @@ struct CancelledView: View {
                         .tracking(1)
                     Text("\"Hey, plans fell through for \(event.scheduledAt.dayString). Maybe next time! 🤷\"")
                         .font(.system(size: 14))
-                        .foregroundColor(Color(hex: "AAAAAA"))
+                        .foregroundColor(BailColor.textMuted)
                         .italic()
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
@@ -46,7 +46,7 @@ struct CancelledView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 14)
                 .frame(maxWidth: .infinity)
-                .background(Color(hex: "111111"))
+                .background(BailColor.surface)
                 .cornerRadius(BailRadius.lg)
                 .overlay(
                     RoundedRectangle(cornerRadius: BailRadius.lg)
