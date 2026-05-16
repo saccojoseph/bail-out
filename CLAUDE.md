@@ -1,4 +1,4 @@
-# bail. — iOS App
+# bail.out — iOS App
 
 ## What This Is
 Social app where friend groups anonymously vote to cancel plans. If enough people bail, the event auto-cancels with a neutral canned message. Nobody ever knows who bailed.

@@ -304,7 +304,7 @@ struct HomeView: View {
 
                     // Info card
                     VStack(alignment: .leading, spacing: 14) {
-                        Text("ABOUT BAIL.")
+                        Text("ABOUT BAIL.OUT")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(BailColor.textSecondary)
                             .tracking(1)

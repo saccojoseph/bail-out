@@ -25,7 +25,7 @@ struct SplashView: View {
 
                 // Brand text
                 VStack(spacing: BailSpacing.sm) {
-                    Text("bail.")
+                    Text("bail.out")
                         .font(.system(size: 42, weight: .heavy))
                         .foregroundColor(BailColor.textPrimary)
                         .tracking(-2)

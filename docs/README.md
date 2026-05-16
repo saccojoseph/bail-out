@@ -1,6 +1,6 @@
-# bail. — public site
+# bail.out — public site
 
-These three pages are the public website for **bail.** They power the App Store's required URLs:
+These three pages are the public website for **bail.out** They power the App Store's required URLs:
 
 - `index.html` → marketing URL
 - `privacy.html` → privacy policy URL

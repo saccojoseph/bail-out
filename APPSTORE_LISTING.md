@@ -1,4 +1,4 @@
-# bail. — App Store Listing
+# bail.out — App Store Listing
 
 Everything you need to copy-paste into App Store Connect.
 
@@ -8,7 +8,7 @@ Everything you need to copy-paste into App Store Connect.
 
 **Name** (30 char max)
 ```
-bail.
+bail.out
 ```
 
 **Subtitle** (30 char max)
@@ -33,9 +33,9 @@ Make plans. Vote in secret. If enough friends bail, the plan auto-cancels — an
 ## Description (4000 char max)
 
 ```
-bail. is the easiest way to flake on plans without being the bad guy.
+bail.out is the easiest way to flake on plans without being the bad guy.
 
-Make a plan. Invite your crew. Everyone votes — anonymously — whether to stay in or bail. If enough people bail, the plan auto-cancels and a neutral text goes out. Nobody ever knows who voted what. Not even you. Not even the creator.
+Make a plan. Invite your crew. Everyone votes — anonymously — whether to stay in or bail.out If enough people bail, the plan auto-cancels and a neutral text goes out. Nobody ever knows who voted what. Not even you. Not even the creator.
 
 — HOW IT WORKS —
 
@@ -50,15 +50,15 @@ Make a plan. Invite your crew. Everyone votes — anonymously — whether to sta
 
 — WHY PEOPLE LOVE IT —
 
-• Truly anonymous. Apple iCloud handles auth — bail. never stores names against votes.
-• Plain-event mode. Not every plan needs voting. Toggle it off and bail. works as a clean group event tracker.
+• Truly anonymous. Apple iCloud handles auth — bail.out never stores names against votes.
+• Plain-event mode. Not every plan needs voting. Toggle it off and bail.out works as a clean group event tracker.
 • No accounts, no passwords. Sign in with Apple. That's it.
 • iMessage-native invites. Friends get a tap-to-open link. They don't need the app to RSVP — but they will once they see it.
 • Real-time. The bail-o-meter updates live as votes come in.
 
 — PRIVACY FIRST —
 
-We built bail. around one rule: nobody ever sees who voted. Votes are aggregated into a count and that's all the app — or anyone — can read. No analytics SDKs. No tracking. No ads. Your contacts never leave your device.
+We built bail.out around one rule: nobody ever sees who voted. Votes are aggregated into a count and that's all the app — or anyone — can read. No analytics SDKs. No tracking. No ads. Your contacts never leave your device.
 
 Make plans. Bail with grace. Stay friends.
 ```
@@ -76,7 +76,7 @@ plans,cancel,bail,group,event,vote,anonymous,friends,rsvp,social,flake,hangout
 ## What's New in This Version (4000 char max — for version 1.0.0)
 
 ```
-Welcome to bail. — the drama-free way to cancel plans.
+Welcome to bail.out — the drama-free way to cancel plans.
 ```
 
 ---
@@ -138,7 +138,7 @@ Everything else.
 ## Notes for Reviewer (App Review)
 
 ```
-Thanks for reviewing bail.
+Thanks for reviewing bail.out
 
 WHAT IT IS:
 A group-plans app where friends anonymously vote whether to keep or cancel a plan. If enough people bail, the plan auto-cancels with a neutral message. The core design promise is that nobody — not even the event creator — can see who voted what.
@@ -162,14 +162,14 @@ Votes are stored in a separate CloudKit record type (BailVote) tied to the event
 
 If you'd like a demo account or sample data, please reach out — happy to provide.
 
-Contact: bail.app.official@gmail.com
+Contact: bail.outapp.official@gmail.com
 ```
 
 ---
 
 ## Demo Account (App Review)
 
-Apple sometimes wants a demo account. Since bail. uses Sign in with Apple via iCloud, **you don't need to provide one** — the reviewer's own iCloud handles it. Check the box that says **"Sign-in not required"** OR **"This app uses Sign in with Apple"** in App Store Connect.
+Apple sometimes wants a demo account. Since bail.out uses Sign in with Apple via iCloud, **you don't need to provide one** — the reviewer's own iCloud handles it. Check the box that says **"Sign-in not required"** OR **"This app uses Sign in with Apple"** in App Store Connect.
 
 ---
 

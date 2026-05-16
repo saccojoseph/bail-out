@@ -449,7 +449,7 @@ struct EventDetailView: View {
             Text("Contacts access denied")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(BailColor.textPrimary)
-            Text("Enable it in Settings → bail. → Contacts")
+            Text("Enable it in Settings → bail.out → Contacts")
                 .font(.system(size: 13))
                 .foregroundColor(BailColor.textSecondary)
                 .multilineTextAlignment(.center)
