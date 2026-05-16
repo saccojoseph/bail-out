@@ -33,6 +33,10 @@ struct ContentView: View {
                 )
                 .transition(.opacity)
                 .onAppear {
+#if DEBUG
+                    // Screenshot mode handles its own routing via applyScreenshotMode()
+                    if ProcessInfo.processInfo.arguments.contains("-ScreenshotMode") { return }
+#endif
                     // Only auto-skip splash for returning users who've completed onboarding
                     if hasCompletedOnboarding && hasSeenOnboarding {
                         startApp()
@@ -130,8 +134,14 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: screen)
-        
+
         .task {
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-ScreenshotMode") {
+                applyScreenshotMode()
+                return
+            }
+#endif
             await NotificationService.shared.requestPermission()
         }
         .alert(errorTitle, isPresented: showingError) {
@@ -427,6 +437,58 @@ struct ContentView: View {
             }
         }
     }
+
+#if DEBUG
+    // MARK: - Screenshot Mode
+    /// Drives the app to a specific screen with PreviewData for App Store screenshots.
+    /// Triggered via `-ScreenshotMode` launch arg + `SCREENSHOT_SCREEN` env var.
+    private func applyScreenshotMode() {
+        cloudKit.events = PreviewData.sampleEvents
+        cloudKit.userVotes = [:]
+        userName = "Joseph"
+        hasCompletedOnboarding = true
+        hasSeenOnboarding = true
+
+        // Launch args of the form `-SCREENSHOT_SCREEN detail` show up as UserDefaults.
+        let target = UserDefaults.standard.string(forKey: "SCREENSHOT_SCREEN")
+            ?? ProcessInfo.processInfo.environment["SCREENSHOT_SCREEN"]
+            ?? "home"
+        switch target {
+        case "splash":
+            hasCompletedOnboarding = false
+            hasSeenOnboarding = false
+            screen = .splash
+        case "onboarding":
+            hasSeenOnboarding = false
+            screen = .onboarding
+        case "home":
+            screen = .home
+        case "detail":
+            selectedEvent = PreviewData.sampleEvents.first
+            screen = .eventDetail
+        case "vote":
+            selectedEvent = PreviewData.sampleEvents.first
+            screen = .vote
+        case "create":
+            screen = .createEvent
+        case "cancelled":
+            if let e = PreviewData.sampleEvents.first {
+                let cancelled = Event(
+                    id: e.id, title: e.title, scheduledAt: e.scheduledAt,
+                    location: e.location, creatorId: e.creatorId,
+                    threshold: e.threshold, status: .cancelled, summary: e.summary,
+                    guests: e.guests, isAnonymous: e.isAnonymous,
+                    showBailOMeter: e.showBailOMeter, showVotingStatus: e.showVotingStatus,
+                    isBailEvent: e.isBailEvent, createdAt: e.createdAt
+                )
+                selectedEvent = cancelled
+                screen = .cancelled
+            }
+        default:
+            screen = .home
+        }
+    }
+#endif
 
     // MARK: - Deep Links (bail://event/<id>)
 
