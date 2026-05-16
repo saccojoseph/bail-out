@@ -4,37 +4,45 @@
 Social app where friend groups anonymously vote to cancel plans. If enough people bail, the event auto-cancels with a neutral canned message. Nobody ever knows who bailed.
 
 ## Tech Stack
-- Swift 5.9+, SwiftUI (all UI), iOS 16 minimum
-- Backend: Node.js + Express + PostgreSQL (separate repo, build iOS first)
-- Auth: Sign in with Apple (required) 
-- Push: APNs via UserNotifications framework
+- Swift 5.9+, SwiftUI (all UI), Xcode 26 beta
+- Backend: CloudKit (public database, iCloud.com.sacco.bail-app container)
+- Auth: iCloud automatic (no sign-in screen — every iPhone user is authenticated)
+- Push: Silent push via CKSubscription for real-time vote sync
+- Local notifications: UNUserNotificationCenter
+- Contacts: CNContactStore + MFMessageComposeViewController for SMS invites
 - No third-party UI libraries — pure SwiftUI only
+- Bundle ID: com.josephsacco.bail-app
 
 ## Project Structure
 ```
-bail/
-├── bail/
-│   ├── App/
-│   │   ├── bailApp.swift
-│   │   └── ContentView.swift
-│   ├── Models/
-│   │   ├── User.swift
-│   │   ├── Event.swift
-│   │   ├── EventGuest.swift
-│   │   └── Vote.swift
-│   ├── Views/
-│   │   ├── Splash/
-│   │   ├── Home/
-│   │   ├── CreateEvent/
-│   │   ├── EventDetail/
-│   │   ├── Vote/
-│   │   └── Cancelled/
-│   ├── ViewModels/
-│   ├── Services/
-│   │   ├── APIService.swift
-│   │   └── NotificationService.swift
-│   └── Design/
-│       └── DesignTokens.swift
+Bail/
+├── BailApp.swift              — @main entry + AppDelegate for push
+├── ContentView.swift          — screen routing, CloudKit state, deep links
+├── PreviewData.swift          — #if DEBUG sample data
+├── Bail.entitlements          — CloudKit + push entitlements
+├── Info.plist                 — Background Modes + URL scheme (bail://)
+├── Assets.xcassets/           — App icon (gradient "b.")
+├── Design/
+│   ├── DesignTokens.swift     — colors, gradients, spacing, radii
+│   └── DateFormatting.swift   — shared Date extensions
+├── Models/
+│   ├── User.swift
+│   ├── Event.swift            — Event, EventSummary, BailThreshold, EventStatus
+│   ├── EventGuest.swift
+│   └── Vote.swift             — VoteChoice + CastVoteRequest (Encodable only)
+├── Views/
+│   ├── Splash/SplashView.swift
+│   ├── Home/HomeView.swift + EventCard.swift
+│   ├── CreateEvent/CreateEventView.swift
+│   ├── EventDetail/EventDetailView.swift
+│   ├── Vote/VoteView.swift
+│   └── Cancelled/CancelledView.swift
+└── Services/
+    ├── CloudKitService.swift      — CRUD, subscriptions, real-time sync
+    ├── ContactsService.swift      — phone contacts loader
+    ├── MessageComposer.swift      — SMS invite composer (#if os(iOS))
+    ├── NotificationService.swift  — local notification scheduling
+    └── PhoneNumberUtils.swift     — phone number normalization
 ```
 
 ## Design Tokens (always use these, never hardcode colors)
@@ -60,39 +68,48 @@ bail/
 6. No force unwraps (!). Use guard let / if let.
 7. All API calls are async/await, never callbacks.
 
-## Screens (build in this order)
-1. Splash — brand intro, Get Started / Sign In
-2. Home — plan cards with Bail-o-meter, bottom tab bar
-3. CreateEvent — 3-step wizard (details → guests → bail rules)
-4. EventDetail — guest list, aggregate bail count, vote CTA
-5. Vote — I'm In / I'd Bail cards, post-vote confirmation
-6. Cancelled — auto-cancel confirmation screen
+## CloudKit Architecture
+- **Public database** — all users can read events they're invited to
+- **Record types**: BailEvent, BailGuest, BailVote (auto-created in Development environment)
+- **Local-first**: UI updates optimistically, syncs to CloudKit in background
+- **Anonymity**: CloudKit stores individual votes for aggregation, but app only queries counts
+- **Real-time**: CKQuerySubscription on BailVote → silent push → AppDelegate → fetchEvents()
+- **Guest matching**: Phone numbers normalized via PhoneNumberUtils for cross-device matching
+- **Deep links**: SMS includes `bail://event/<id>`, handled by .onOpenURL
 
 ## Project Location
 - Xcode project: `/Users/josephsacco/Documents/Bail/Bail.xcodeproj`
 - Source files (write here): `/Users/josephsacco/Documents/Bail/Bail/`
-- Always write Swift files to the source path above — never to the worktree
+- Always write Swift files to the source path above — never to a worktree
 
 ## Xcode Notes
-- After creating new folders on disk, manually add them in Xcode: right-click group → Add Files to "Bail" → check "Add to target: Bail"
-- Portrait lock: set in Xcode → General → Deployment Info → uncheck Landscape. Do NOT use UIKit/AppDelegate for this.
-- A `?` badge on a file means it's not in the target yet — fix via File Inspector → Target Membership
+- Xcode 26 beta with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` (strict concurrency)
+- PBXFileSystemSynchronizedRootGroup: files added to disk are auto-included in target
+- Portrait lock via INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone in pbxproj
+- Simulators: iPhone 17 series (iOS 26.5)
+- No physical device registered yet — simulator-only development
 
 ## Current Status
-[x] Project scaffolded
-[x] DesignTokens.swift created
-[x] Models created (User, Event, EventGuest, Vote)
-[x] Splash screen
-[x] Home screen
-[x] CreateEvent flow (3-step wizard)
-[x] EventDetail screen
-[ ] Vote screen
-[ ] Cancelled screen
-[ ] APIService (mock first, real later)
-[ ] Push notifications
+[x] All 6 screens built (Splash, Home, CreateEvent, EventDetail, Vote, Cancelled)
+[x] Design tokens + shared date formatting
+[x] Models with anonymity contract enforced in types
+[x] CloudKit backend (events, guests, votes)
+[x] Real-time vote sync via silent push
+[x] Contacts integration + SMS invites with deep links
+[x] Local notifications (reminders + cancellation alerts)
+[x] Pull-to-refresh on Home
+[x] App icon (light + dark variants)
+[x] Portrait lock
+
+## Next Steps
+1. Test on real device (CloudKit, contacts, SMS, push need real iPhone)
+2. Profile tab (show user's name, event count — currently placeholder)
+3. Empty states (friendly message when no events)
+4. Delete/archive events (swipe-to-delete or button)
+5. Loading states (skeleton cards while CloudKit fetches)
+6. Error handling polish (contextual errors instead of generic alerts)
 
 ## Commands
-- Build: Cmd+B in Xcode
+- Build: Cmd+B in Xcode (or `xcodebuild -scheme Bail -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`)
 - Run: Cmd+R in Xcode
 - Test: Cmd+U in Xcode
-- Simulator: iPhone 15 Pro (iOS 17)

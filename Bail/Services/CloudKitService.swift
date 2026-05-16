@@ -328,6 +328,21 @@ final class CloudKitService: ObservableObject {
         return updated
     }
 
+    // MARK: - Delete Event
+
+    /// Deletes an event and its associated guest/vote records from CloudKit.
+    func deleteEvent(eventId: String) async throws {
+        let recordID = CKRecord.ID(recordName: eventId)
+
+        // Delete the event record (guests and votes use .deleteSelf action,
+        // so CloudKit automatically cascades the delete)
+        try await database.deleteRecord(withID: recordID)
+
+        // Remove from local state
+        events.removeAll { $0.id == eventId }
+        userVotes.removeValue(forKey: eventId)
+    }
+
     // MARK: - Cancel Event in CloudKit
 
     private func markEventCancelled(eventId: String) async throws {

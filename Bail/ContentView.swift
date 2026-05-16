@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var selectedEvent: Event?
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var errorTitle: String = "Something went wrong"
 
     var body: some View {
         ZStack {
@@ -30,10 +31,15 @@ struct ContentView: View {
             case .home:
                 HomeView(
                     events: cloudKit.events,
+                    userName: userName,
+                    isLoading: isLoading,
                     onCreateEvent: { screen = .createEvent },
                     onSelectEvent: { event in
                         selectedEvent = event
                         screen = .eventDetail
+                    },
+                    onDeleteEvent: { eventId in
+                        handleDeleteEvent(eventId: eventId)
                     },
                     onRefresh: {
                         try? await cloudKit.fetchEvents()
@@ -98,14 +104,27 @@ struct ContentView: View {
         .task {
             await NotificationService.shared.requestPermission()
         }
-        .alert("Oops", isPresented: showingError) {
-            Button("OK") { errorMessage = nil }
+        .alert(errorTitle, isPresented: showingError) {
+            Button("OK") {
+                errorMessage = nil
+                errorTitle = "Something went wrong"
+            }
         } message: {
             Text(errorMessage ?? "Something went wrong.")
         }
         .onOpenURL { url in
             handleDeepLink(url)
         }
+    }
+
+    /// Display name derived from iCloud user record, with fallback
+    private var userName: String {
+        if let id = cloudKit.userRecordID {
+            // CKRecord.ID.recordName is a UUID-like string — not user-friendly.
+            // We'll use a friendly default until we fetch the real name.
+            return "there"
+        }
+        return "there"
     }
 
     private var showingError: Binding<Bool> {
@@ -170,7 +189,8 @@ struct ContentView: View {
                     cloudKit.events[index] = cloudEvent
                 }
             } catch {
-                errorMessage = "Couldn't save to iCloud: \(error.localizedDescription)"
+                errorTitle = "Couldn't save plan"
+                errorMessage = "Your plan was created locally but couldn't sync to iCloud. It'll try again next time you open the app."
             }
         }
     }
@@ -232,7 +252,33 @@ struct ContentView: View {
             do {
                 _ = try await cloudKit.castVote(eventId: eventId, choice: choice)
             } catch {
-                errorMessage = "Vote couldn't sync: \(error.localizedDescription)"
+                errorTitle = "Vote didn't sync"
+                errorMessage = "Your vote was saved locally but couldn't reach iCloud. Don't worry — it'll sync automatically."
+            }
+        }
+    }
+
+    // MARK: - Delete Event
+
+    private func handleDeleteEvent(eventId: String) {
+        // Optimistic local removal
+        cloudKit.events.removeAll { $0.id == eventId }
+
+        // If we were viewing this event, go back home
+        if selectedEvent?.id == eventId {
+            selectedEvent = nil
+            screen = .home
+        }
+
+        // Sync deletion to CloudKit
+        Task {
+            do {
+                try await cloudKit.deleteEvent(eventId: eventId)
+            } catch {
+                errorTitle = "Couldn't delete plan"
+                errorMessage = "The plan couldn't be removed from iCloud. Refreshing your list…"
+                // Re-fetch to restore state since local delete already happened
+                try? await cloudKit.fetchEvents()
             }
         }
     }
@@ -261,10 +307,12 @@ struct ContentView: View {
                     selectedEvent = event
                     screen = .eventDetail
                 } else {
-                    errorMessage = "Couldn't find that event."
+                    errorTitle = "Plan not found"
+                    errorMessage = "That plan may have been deleted or you don't have access to it."
                 }
             } catch {
-                errorMessage = "Couldn't load event: \(error.localizedDescription)"
+                errorTitle = "Couldn't open plan"
+                errorMessage = "There was a problem loading that plan from iCloud. Check your connection and try again."
             }
         }
     }
