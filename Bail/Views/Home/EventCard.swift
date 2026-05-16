@@ -102,16 +102,6 @@ struct EventCard: View {
     }
 }
 
-// MARK: - Date helper
-
-private extension Date {
-    var eventTimeString: String {
-        let f = DateFormatter()
-        f.dateFormat = "EEE h:mm a"
-        return f.string(from: self)
-    }
-}
-
 #Preview {
     ZStack {
         BailColor.background.ignoresSafeArea()

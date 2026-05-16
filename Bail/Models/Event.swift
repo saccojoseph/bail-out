@@ -42,6 +42,7 @@ struct Event: Identifiable, Codable {
     let status: EventStatus
     let summary: EventSummary
     let guests: [EventGuest]
+    let isAnonymous: Bool
     let showBailOMeter: Bool
     let showVotingStatus: Bool
     let createdAt: Date

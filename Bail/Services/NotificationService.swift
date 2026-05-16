@@ -5,6 +5,7 @@ final class NotificationService {
     static let shared = NotificationService()
     private init() {}
 
+    @discardableResult
     func requestPermission() async -> Bool {
         do {
             return try await UNUserNotificationCenter.current()

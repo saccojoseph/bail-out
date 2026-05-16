@@ -71,16 +71,6 @@ struct CancelledView: View {
     }
 }
 
-// MARK: - Date helper
-
-private extension Date {
-    var dayString: String {
-        let f = DateFormatter()
-        f.dateFormat = "EEEE"
-        return f.string(from: self)
-    }
-}
-
 #Preview {
     CancelledView(event: PreviewData.sampleEvents[0])
 }

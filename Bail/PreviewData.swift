@@ -21,6 +21,7 @@ enum PreviewData {
             status: .active,
             summary: EventSummary(bailCount: 2, totalVotes: 3, requiredBails: 3),
             guests: guests,
+            isAnonymous: true,
             showBailOMeter: true,
             showVotingStatus: true,
             createdAt: Date()
@@ -35,6 +36,7 @@ enum PreviewData {
             status: .active,
             summary: EventSummary(bailCount: 0, totalVotes: 1, requiredBails: 2),
             guests: Array(guests.prefix(3)),
+            isAnonymous: false,
             showBailOMeter: false,
             showVotingStatus: false,
             createdAt: Date()

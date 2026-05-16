@@ -196,16 +196,6 @@ struct EventDetailView: View {
     }
 }
 
-// MARK: - Date helper
-
-private extension Date {
-    var detailTimeString: String {
-        let f = DateFormatter()
-        f.dateFormat = "EEEE · h:mm a"
-        return f.string(from: self)
-    }
-}
-
 #Preview {
     EventDetailView(event: PreviewData.sampleEvents[0])
 }

@@ -157,10 +157,12 @@ struct VoteView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(BailColor.textMuted)
                     .tracking(1)
-                Text("\(event.summary.bailCount) of \(event.summary.requiredBails) bails needed")
+                Text("\(projectedBailCount) of \(event.summary.requiredBails) bails needed")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(BailColor.accentStart)
-                Text("Still on — for now 👀")
+                Text(projectedBailCount >= event.summary.requiredBails
+                     ? "Uh oh… that might be enough 😬"
+                     : "Still on — for now 👀")
                     .font(.system(size: 12))
                     .foregroundColor(BailColor.textSecondary)
             }
@@ -189,6 +191,20 @@ struct VoteView: View {
         }
     }
 
+    // MARK: - Projected count (preview what the count will be after this vote)
+
+    private var projectedBailCount: Int {
+        guard let choice = selected else { return event.summary.bailCount }
+        var count = event.summary.bailCount
+        if let prev = existingVote {
+            if prev == .bail && choice == .in  { count -= 1 }
+            if prev == .in  && choice == .bail { count += 1 }
+        } else {
+            if choice == .bail { count += 1 }
+        }
+        return max(0, count)
+    }
+
     // MARK: - Action
 
     private func castVote(_ choice: VoteChoice) {
@@ -198,16 +214,6 @@ struct VoteView: View {
                 showConfirmation = true
             }
         }
-    }
-}
-
-// MARK: - Date helper
-
-private extension Date {
-    var eventTimeString: String {
-        let f = DateFormatter()
-        f.dateFormat = "EEE h:mm a"
-        return f.string(from: self)
     }
 }
 

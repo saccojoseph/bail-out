@@ -403,7 +403,7 @@ struct CreateEventView: View {
                 : "Everyone can see how each person voted",
             isOn: $isAnonymous,
             note: isAnonymous
-                ? "🔒 Votes are encrypted. Nobody — not even the creator — can see individual choices."
+                ? "Votes are encrypted. Nobody — not even the creator — can see individual choices."
                 : nil
         )
     }
@@ -539,20 +539,11 @@ struct CreateEventView: View {
             status: .active,
             summary: EventSummary(bailCount: 0, totalVotes: 0, requiredBails: requiredBails),
             guests: chosenGuests,
+            isAnonymous: isAnonymous,
             showBailOMeter: showBailOMeter,
             showVotingStatus: showVotingStatus,
             createdAt: Date()
         )
-    }
-}
-
-// MARK: - Date helper
-
-private extension Date {
-    var inviteString: String {
-        let f = DateFormatter()
-        f.dateFormat = "EEEE, MMM d 'at' h:mm a"
-        return f.string(from: self)
     }
 }
 
