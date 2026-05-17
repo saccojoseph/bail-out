@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support — bail.out</title>
+<style>
+  :root {
+    --bg: #0A0A0A; --surface: #141414; --border: #2A2A2A;
+    --text: #FFFFFF; --text-2: #888888; --text-3: #555555;
+    --accent: #FF4458;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; line-height: 1.6;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 64px 24px; }
+  .back { color: var(--text-2); font-size: 14px; margin-bottom: 32px; display: inline-block; }
+  h1 { font-size: 38px; font-weight: 900; letter-spacing: -1.5px; margin-bottom: 40px; }
+  h2 { font-size: 18px; font-weight: 800; margin-top: 28px; margin-bottom: 8px; letter-spacing: -0.2px; }
+  p { color: var(--text-2); font-size: 15px; margin-bottom: 10px; }
+  strong { color: var(--text); }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px;
+    margin: 14px 0;
+  }
+  .card h2 { margin-top: 0; }
+  .contact-card {
+    background: linear-gradient(135deg, rgba(255, 68, 88, 0.12), rgba(255, 107, 53, 0.06));
+    border: 1px solid rgba(255, 68, 88, 0.3);
+    border-radius: 16px;
+    padding: 24px;
+    margin-top: 32px;
+  }
+  .contact-card a {
+    display: inline-block;
+    margin-top: 6px;
+    color: white;
+    background: linear-gradient(135deg, #FF4458, #FF6B35);
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+  }
+  .contact-card a:hover { text-decoration: none; opacity: 0.92; }
+  footer {
+    margin-top: 56px; padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 13px; color: var(--text-3);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="back" href="index.html">← bail.out</a>
+  <h1>Support</h1>
+
+  <p>Need help with bail.out? Most answers are below — if you don't see what you're looking for, email us.</p>
+
+  <div class="card">
+    <h2>How do I sign in?</h2>
+    <p>bail.out uses your iCloud account. Just tap "Sign in with Apple" on the splash screen. Make sure you're signed into iCloud in iOS Settings → [Your Name].</p>
+  </div>
+
+  <div class="card">
+    <h2>Why can't my friends see my invite?</h2>
+    <p>Make sure you sent the SMS invite from the create-plan flow. They'll get a text with a link starting with <code>bail://event/</code>. If they don't have bail.out installed yet, the link won't open until they download it.</p>
+  </div>
+
+  <div class="card">
+    <h2>How does anonymous voting actually work?</h2>
+    <p>Votes are stored as separate records in our database (Apple CloudKit), and the app only ever reads the <em>count</em> — never individual votes. The event creator has the same view as everyone else. There is no admin mode and no way to see who voted what. See our <a href="privacy.html">Privacy Policy</a> for the details.</p>
+  </div>
+
+  <div class="card">
+    <h2>I voted but the count didn't update</h2>
+    <p>Pull down on the event screen to refresh, or close and reopen the app. Votes sync over CloudKit, which usually takes 1–3 seconds. If a vote ever fails to sync, the app stores it locally and retries automatically.</p>
+  </div>
+
+  <div class="card">
+    <h2>Can I change or undo my bail vote?</h2>
+    <p>No. Bail votes are write-once by design. If you could change your vote after the fact, it would compromise the anonymity guarantee for everyone else.</p>
+  </div>
+
+  <div class="card">
+    <h2>Can I change my location vote?</h2>
+    <p>Yes. Location votes can be changed anytime before the vote closes. Open the plan, tap "Vote on Location," and tap "Change Your Vote." Unlike bail votes, location votes are not anonymous — everyone can see who voted for which spot.</p>
+  </div>
+
+  <div class="card">
+    <h2>What is location voting?</h2>
+    <p>When creating a plan, the creator can add 2 or more venue options and let guests vote on where to go. Location voting is separate from bail voting — you can vote on the spot without committing to attending, and you can bail without ever voting on location. Once everyone votes, the winning venue locks in automatically.</p>
+  </div>
+
+  <div class="card">
+    <h2>How do I delete a plan?</h2>
+    <p>On the home screen, long-press the plan card and tap "Delete Plan." Only the creator can delete a plan. Deleting removes it from everyone's home screen.</p>
+  </div>
+
+  <div class="card">
+    <h2>Can I use bail.out without the voting?</h2>
+    <p>Yes! When creating a plan, toggle off "Enable bail voting" on the last step. The plan will work as a simple group event with no voting and no auto-cancel.</p>
+  </div>
+
+  <div class="card">
+    <h2>How do I delete my data?</h2>
+    <p>Any plan you created can be deleted by long-pressing it on the home screen and tapping "Delete Plan." This permanently removes the event, guest list, and all votes from our database. For plans you were only invited to (not created), email <a href="mailto:bail.out.app.official@gmail.com?subject=Delete%20my%20account">bail.out.app.official@gmail.com</a> with the subject "Delete my account" and we'll remove your records within 7 days.</p>
+  </div>
+
+  <div class="card">
+    <h2>I found a bug / I have a feature idea</h2>
+    <p>Go to the Profile tab and tap "Report Bug" or "Request Feature." It opens your email with the right subject pre-filled. We read every message.</p>
+  </div>
+
+  <div class="contact-card">
+    <h2 style="color: white; margin-bottom: 6px;">Still stuck?</h2>
+    <p style="color: var(--text-2); margin-bottom: 14px;">We typically respond within 24 hours.</p>
+    <a href="mailto:bail.out.app.official@gmail.com?subject=Bail%20Support">Email us</a>
+  </div>
+
+  <footer>
+    <p><a href="index.html">Home</a> · <a href="privacy.html">Privacy Policy</a></p>
+    <p style="margin-top: 12px;">© 2026 Joseph Sacco</p>
+  </footer>
+
+</div>
+</body>
+</html>
