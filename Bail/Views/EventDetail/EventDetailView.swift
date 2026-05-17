@@ -40,10 +40,10 @@ struct EventDetailView: View {
                             locationVoteCard
                         }
                         guestsCard
-                        if event.isBailEvent && event.showBailOMeter && locationResolved {
+                        if event.isBailEvent && event.showBailOMeter {
                             bailOMeterCard
                         }
-                        if event.isBailEvent && locationResolved {
+                        if event.isBailEvent {
                             voteSection
                         }
                         if isCreator && event.status == .active {
@@ -500,13 +500,6 @@ struct EventDetailView: View {
         manualName = ""
         manualPhone = ""
         showAddGuest = false
-    }
-
-    // MARK: - Location helpers
-
-    /// Location voting is either disabled or already resolved — bail voting can proceed.
-    private var locationResolved: Bool {
-        event.locationVotingStatus == .disabled || event.locationVotingStatus == .resolved
     }
 
     // MARK: - Location vote card

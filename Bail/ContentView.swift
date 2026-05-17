@@ -450,20 +450,32 @@ struct ContentView: View {
     // MARK: - Location Vote
 
     private func handleLocationVote(eventId: String, locationOptionId: String) {
-        // Optimistic local update — increment vote count on selected option
+        let myUserId = cloudKit.userRecordID?.recordName ?? ""
+
+        // Optimistic local update — handle both new votes and vote changes
         if let index = cloudKit.events.firstIndex(where: { $0.id == eventId }) {
             let old = cloudKit.events[index]
             var updatedOptions = old.locationOptions
+
+            // 1. Remove existing vote from any option (handles vote changes)
+            for i in updatedOptions.indices {
+                if let voterIdx = updatedOptions[i].voters.firstIndex(where: { $0.guestId == myUserId }) {
+                    updatedOptions[i].voters.remove(at: voterIdx)
+                    updatedOptions[i].voteCount = max(0, updatedOptions[i].voteCount - 1)
+                }
+            }
+
+            // 2. Add vote to selected option
             if let optIdx = updatedOptions.firstIndex(where: { $0.id == locationOptionId }) {
                 updatedOptions[optIdx].voteCount += 1
                 updatedOptions[optIdx].voters.append(
-                    LocationVoter(id: UUID().uuidString, guestId: cloudKit.userRecordID?.recordName ?? "", displayName: userName)
+                    LocationVoter(id: UUID().uuidString, guestId: myUserId, displayName: userName)
                 )
             }
 
-            // Check if all guests have voted (simple heuristic: total votes == guest count)
+            // 3. Check if all guests have voted
             let totalVotes = updatedOptions.reduce(0) { $0 + $1.voteCount }
-            let allVoted = totalVotes >= old.guests.count
+            let allVoted = totalVotes >= old.guests.count && old.guests.count > 0
 
             let newStatus: LocationVotingStatus = allVoted ? .resolved : old.locationVotingStatus
             let winningId: String? = allVoted
@@ -499,10 +511,21 @@ struct ContentView: View {
                     locationOptionId: locationOptionId,
                     voterDisplayName: userName
                 )
-                // Check if vote should auto-resolve
-                if let event = cloudKit.events.first(where: { $0.id == eventId }),
-                   event.locationVotingStatus == .resolved {
-                    try await cloudKit.resolveLocationVote(eventId: eventId)
+                // Re-fetch to get accurate state from server
+                try? await cloudKit.fetchEvents()
+                if let refreshed = cloudKit.events.first(where: { $0.id == eventId }) {
+                    selectedEvent = refreshed
+                    // Auto-resolve if all guests voted
+                    if refreshed.locationVotingStatus == .voting {
+                        let totalVotes = refreshed.locationOptions.reduce(0) { $0 + $1.voteCount }
+                        if totalVotes >= refreshed.guests.count && refreshed.guests.count > 0 {
+                            try await cloudKit.resolveLocationVote(eventId: eventId)
+                            try? await cloudKit.fetchEvents()
+                            if let resolved = cloudKit.events.first(where: { $0.id == eventId }) {
+                                selectedEvent = resolved
+                            }
+                        }
+                    }
                 }
             } catch {
                 errorTitle = "Vote didn't sync"

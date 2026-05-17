@@ -18,7 +18,7 @@ Social app where friend groups anonymously vote to cancel plans. If enough peopl
 Bail/
 ├── BailApp.swift              — @main entry + AppDelegate for push
 ├── ContentView.swift          — screen routing, CloudKit state, all handlers, deep links
-├── PreviewData.swift          — #if DEBUG sample data
+├── PreviewData.swift          — #if DEBUG sample data (includes location voting samples)
 ├── Bail.entitlements          — CloudKit + push entitlements
 ├── Info.plist                 — Background Modes + URL scheme (bail://)
 ├── Assets.xcassets/           — App icon (gradient "b.")
@@ -27,19 +27,24 @@ Bail/
 │   └── DateFormatting.swift   — shared Date extensions
 ├── Models/
 │   ├── User.swift
-│   ├── Event.swift            — Event (+ isBailEvent field), EventSummary, BailThreshold, EventStatus
+│   ├── Event.swift            — Event, EventSummary, BailThreshold, EventStatus
 │   ├── EventGuest.swift
+│   ├── LocationOption.swift   — LocationVotingStatus, LocationOption, LocationVoter
 │   └── Vote.swift             — VoteChoice + CastVoteRequest (Encodable only)
 ├── Views/
 │   ├── Splash/SplashView.swift          — single "Sign in with Apple" button
 │   ├── Onboarding/OnboardingView.swift  — 3-screen swipeable tutorial, shown once
 │   ├── Home/HomeView.swift + EventCard.swift
-│   ├── CreateEvent/CreateEventView.swift
+│   ├── CreateEvent/
+│   │   ├── CreateEventView.swift        — 3-step flow with location mode toggle
+│   │   └── LocationSearchField.swift    — reusable MapKit autocomplete component
 │   ├── EventDetail/EventDetailView.swift
+│   ├── LocationVote/LocationVoteView.swift — guests vote on venue (visible votes)
 │   ├── Vote/VoteView.swift
 │   └── Cancelled/CancelledView.swift
 └── Services/
-    ├── CloudKitService.swift      — CRUD, subscriptions, real-time sync
+    ├── CloudKitService.swift      — CRUD, subscriptions, real-time sync, location votes
+    ├── LocationSearchService.swift — MKLocalSearchCompleter wrapper for place autocomplete
     ├── ContactsService.swift      — phone contacts loader
     ├── MessageComposer.swift      — SMS invite composer (#if os(iOS))
     ├── NotificationService.swift  — local notification scheduling
@@ -71,9 +76,10 @@ Bail/
 
 ## CloudKit Architecture
 - **Public database** — all users can read events they're invited to
-- **Record types**: BailEvent (has isBailEvent field), BailGuest, BailVote
+- **Record types**: BailEvent, BailGuest, BailVote, BailLocationOption, BailLocationVote
 - **Local-first**: UI updates optimistically, syncs to CloudKit in background
-- **Anonymity**: CloudKit stores individual votes for aggregation, but app only queries counts
+- **Anonymity**: CloudKit stores individual bail votes for aggregation, but app only queries counts
+- **Location votes are VISIBLE**: who voted for what is shown (not anonymous like bail votes)
 - **Real-time**: CKQuerySubscription on BailVote → silent push → AppDelegate → fetchEvents()
 - **Guest matching**: Phone numbers normalized via PhoneNumberUtils for cross-device matching
 - **Deep links**: SMS includes `bail://event/<id>`, handled by .onOpenURL
@@ -81,8 +87,11 @@ Bail/
 
 ## CloudKitService Methods
 - `setup()` — checks iCloud status, fetches userRecordID
-- `createEvent(title:scheduledAt:location:threshold:isAnonymous:showBailOMeter:showVotingStatus:isBailEvent:guests:)` 
+- `createEvent(title:scheduledAt:location:threshold:isAnonymous:showBailOMeter:showVotingStatus:isBailEvent:locationVotingStatus:locationOptions:guests:)` 
 - `castVote(eventId:choice:)` — wraps initial query in try-catch (schema may not exist on first vote)
+- `castLocationVote(eventId:locationOptionId:voterDisplayName:)` — upserts location vote
+- `resolveLocationVote(eventId:)` — picks winner, updates event location + status
+- `fetchLocationOptions(eventRecordID:)` — fetches options + votes for an event
 - `fetchEvents()` — fetches created + invited events, aggregates votes
 - `addGuest(eventId:displayName:phoneNumber:avatarColor:)`
 - `removeGuest(guestId:eventId:)`
@@ -111,17 +120,17 @@ Bail/
 - Real device: iPhone 16 Pro Max, iOS 26.4.2, Developer Mode enabled
 
 ## Current Status
-[x] All 6 screens + Onboarding screen
+[x] All 7 screens + Onboarding screen (splash, home, create, detail, vote, location vote, cancelled)
 [x] Design tokens + shared date formatting
 [x] Models with anonymity contract enforced in types
-[x] CloudKit backend (events, guests, votes, cancel, edit title)
+[x] CloudKit backend (events, guests, votes, cancel, edit title, location votes)
 [x] Real-time vote sync via silent push
 [x] Contacts integration + SMS invites with deep links
 [x] Local notifications (reminders + cancellation alerts)
 [x] Pull-to-refresh on Home
 [x] App icon (light + dark variants)
 [x] Portrait lock
-[x] Profile tab (name, stats, sign out)
+[x] Profile tab (name, stats, sign out, report bug, request feature)
 [x] Empty states (upcoming + past tabs)
 [x] Skeleton loading cards with shimmer
 [x] Delete events (long-press context menu)
@@ -133,12 +142,29 @@ Bail/
 [x] Single "Sign in with Apple" button on splash
 [x] 3-screen onboarding tutorial (shown once)
 [x] Tested on real device (iPhone 16 Pro Max, iOS 26.4.2)
+[x] Location autocomplete (MKLocalSearchCompleter) in create flow
+[x] Location voting — creator adds 2+ places, guests vote, winner locks in
+[x] Bail voting gated behind location resolution (location vote first)
+[x] App Store review prompt after first invite send
+[x] iMessage triggered after adding guests to existing events
+[x] App Store submission package (metadata, GitHub Pages site, privacy manifest, screenshots)
+[x] Renamed from "bail." to "bail.out" (App Store name, UI, emails)
+
+## Location Voting Architecture
+- **Separate from bail voting** — location vote happens FIRST, is a prerequisite
+- **Visible votes** — who voted for what is shown (unlike anonymous bail votes)
+- **Flow**: Creator picks "Let Guests Vote" → adds 2+ places → guests see LocationVoteView → once all vote, winner resolves → bail voting unlocks
+- **Auto-resolve**: when total location votes == guest count, winner is determined automatically
+- **Creator override**: creator can resolve early via CloudKit (resolveLocationVote)
+- **Models**: LocationVotingStatus (.disabled/.voting/.resolved), LocationOption, LocationVoter
+- **Event fields**: locationVotingStatus, locationOptions, resolvedLocationId
 
 ## Next Steps
-1. Verify vote CloudKit sync on real device (fixed try-catch, needs confirmation)
-2. Test SMS invite + deep link end-to-end on real device
-3. Test push notifications on real device
-4. App Store prep (screenshots, description, privacy policy)
+1. Test location voting end-to-end on real device
+2. Verify vote CloudKit sync on real device
+3. Test SMS invite + deep link end-to-end on real device
+4. Test push notifications on real device
+5. Submit to App Store
 
 ## Commands
 - Build: Cmd+B in Xcode (or `xcodebuild -scheme Bail -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`)
