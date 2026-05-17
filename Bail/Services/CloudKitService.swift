@@ -5,9 +5,11 @@ import Foundation
 // MARK: - Record type constants
 
 private enum RecordType {
-    static let event = "BailEvent"
-    static let guest = "BailGuest"
-    static let vote  = "BailVote"
+    static let event          = "BailEvent"
+    static let guest          = "BailGuest"
+    static let vote           = "BailVote"
+    static let locationOption = "BailLocationOption"
+    static let locationVote   = "BailLocationVote"
 }
 
 // MARK: - CloudKitService
@@ -62,6 +64,8 @@ final class CloudKitService: ObservableObject {
         showBailOMeter: Bool,
         showVotingStatus: Bool,
         isBailEvent: Bool,
+        locationVotingStatus: LocationVotingStatus = .disabled,
+        locationOptions: [(name: String, address: String?)] = [],
         guests: [(displayName: String, phoneNumber: String, avatarColor: String)]
     ) async throws -> Event {
         guard let creatorID = userRecordID else {
@@ -80,6 +84,7 @@ final class CloudKitService: ObservableObject {
         eventRecord["showBailOMeter"] = showBailOMeter
         eventRecord["showVotingStatus"] = showVotingStatus
         eventRecord["isBailEvent"] = isBailEvent
+        eventRecord["locationVotingStatus"] = locationVotingStatus.rawValue
         eventRecord["createdAt"] = Date()
 
         let savedEvent = try await database.save(eventRecord)
@@ -110,7 +115,32 @@ final class CloudKitService: ObservableObject {
             ))
         }
 
-        // 3. Compute required bails
+        // 3. Create location option records (if location voting enabled)
+        var savedLocOptions: [LocationOption] = []
+        if locationVotingStatus == .voting {
+            for option in locationOptions {
+                let optionRecord = CKRecord(recordType: RecordType.locationOption)
+                optionRecord["eventId"] = CKRecord.Reference(
+                    recordID: savedEvent.recordID, action: .deleteSelf
+                )
+                optionRecord["name"] = option.name
+                optionRecord["address"] = option.address
+                optionRecord["addedBy"] = creatorID.recordName
+
+                let saved = try await database.save(optionRecord)
+                savedLocOptions.append(LocationOption(
+                    id: saved.recordID.recordName,
+                    eventId: eventID,
+                    name: option.name,
+                    address: option.address,
+                    addedBy: creatorID.recordName,
+                    voteCount: 0,
+                    voters: []
+                ))
+            }
+        }
+
+        // 4. Compute required bails
         let requiredBails: Int
         switch threshold {
         case .all:      requiredBails = max(guests.count, 1)
@@ -118,7 +148,7 @@ final class CloudKitService: ObservableObject {
         case .any:      requiredBails = 1
         }
 
-        // 4. Build local Event model
+        // 5. Build local Event model
         let event = Event(
             id: eventID,
             title: title,
@@ -133,11 +163,12 @@ final class CloudKitService: ObservableObject {
             showBailOMeter: showBailOMeter,
             showVotingStatus: showVotingStatus,
             isBailEvent: isBailEvent,
+            locationVotingStatus: locationVotingStatus,
+            locationOptions: savedLocOptions,
+            resolvedLocationId: nil,
             createdAt: Date()
         )
 
-        // Note: caller is responsible for inserting into events array
-        // (ContentView does optimistic local insert before calling this)
         return event
     }
 
@@ -319,6 +350,9 @@ final class CloudKitService: ObservableObject {
             summary: newSummary, guests: old.guests,
             isAnonymous: old.isAnonymous, showBailOMeter: old.showBailOMeter,
             showVotingStatus: old.showVotingStatus, isBailEvent: old.isBailEvent,
+            locationVotingStatus: old.locationVotingStatus,
+            locationOptions: old.locationOptions,
+            resolvedLocationId: old.resolvedLocationId,
             createdAt: old.createdAt
         )
         events[index] = updated
@@ -378,6 +412,9 @@ final class CloudKitService: ObservableObject {
                 guests: old.guests + [newGuest],
                 isAnonymous: old.isAnonymous, showBailOMeter: old.showBailOMeter,
                 showVotingStatus: old.showVotingStatus, isBailEvent: old.isBailEvent,
+                locationVotingStatus: old.locationVotingStatus,
+                locationOptions: old.locationOptions,
+                resolvedLocationId: old.resolvedLocationId,
                 createdAt: old.createdAt
             )
         }
@@ -409,6 +446,9 @@ final class CloudKitService: ObservableObject {
                 guests: updatedGuests,
                 isAnonymous: old.isAnonymous, showBailOMeter: old.showBailOMeter,
                 showVotingStatus: old.showVotingStatus, isBailEvent: old.isBailEvent,
+                locationVotingStatus: old.locationVotingStatus,
+                locationOptions: old.locationOptions,
+                resolvedLocationId: old.resolvedLocationId,
                 createdAt: old.createdAt
             )
         }
@@ -440,7 +480,11 @@ final class CloudKitService: ObservableObject {
                 threshold: old.threshold, status: .cancelled, summary: old.summary,
                 guests: old.guests, isAnonymous: old.isAnonymous,
                 showBailOMeter: old.showBailOMeter, showVotingStatus: old.showVotingStatus,
-                isBailEvent: old.isBailEvent, createdAt: old.createdAt
+                isBailEvent: old.isBailEvent,
+                locationVotingStatus: old.locationVotingStatus,
+                locationOptions: old.locationOptions,
+                resolvedLocationId: old.resolvedLocationId,
+                createdAt: old.createdAt
             )
         }
     }
@@ -460,7 +504,11 @@ final class CloudKitService: ObservableObject {
                 threshold: old.threshold, status: old.status, summary: old.summary,
                 guests: old.guests, isAnonymous: old.isAnonymous,
                 showBailOMeter: old.showBailOMeter, showVotingStatus: old.showVotingStatus,
-                isBailEvent: old.isBailEvent, createdAt: old.createdAt
+                isBailEvent: old.isBailEvent,
+                locationVotingStatus: old.locationVotingStatus,
+                locationOptions: old.locationOptions,
+                resolvedLocationId: old.resolvedLocationId,
+                createdAt: old.createdAt
             )
         }
     }
@@ -497,6 +545,147 @@ final class CloudKitService: ObservableObject {
         } catch {
             print("[CloudKit] Subscription error: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Location Voting
+
+    /// Cast a vote for a location option (visible, not anonymous).
+    func castLocationVote(eventId: String, locationOptionId: String, voterDisplayName: String) async throws {
+        guard let voterID = userRecordID else {
+            throw CloudKitError.notAuthenticated
+        }
+
+        let eventRef = CKRecord.Reference(
+            recordID: CKRecord.ID(recordName: eventId), action: .deleteSelf
+        )
+        let optionRef = CKRecord.Reference(
+            recordID: CKRecord.ID(recordName: locationOptionId), action: .deleteSelf
+        )
+
+        // Check for existing location vote by this user on this event
+        var existingRecord: CKRecord? = nil
+        do {
+            let pred = NSPredicate(
+                format: "eventId == %@ AND voterId == %@",
+                eventRef, voterID.recordName
+            )
+            let query = CKQuery(recordType: RecordType.locationVote, predicate: pred)
+            let (results, _) = try await database.records(matching: query)
+            existingRecord = results.first.flatMap { try? $0.1.get() }
+        } catch {
+            // Schema may not exist yet on first vote
+            print("[CloudKit] Location vote query failed: \(error.localizedDescription)")
+        }
+
+        if let existing = existingRecord {
+            existing["locationOptionId"] = optionRef
+            try await database.save(existing)
+        } else {
+            let record = CKRecord(recordType: RecordType.locationVote)
+            record["eventId"] = eventRef
+            record["locationOptionId"] = optionRef
+            record["voterId"] = voterID.recordName
+            record["voterDisplayName"] = voterDisplayName
+            try await database.save(record)
+        }
+    }
+
+    /// Resolves location voting: picks the winner, updates the event's location field.
+    func resolveLocationVote(eventId: String) async throws {
+        guard let index = events.firstIndex(where: { $0.id == eventId }) else {
+            throw CloudKitError.eventNotFound
+        }
+        let event = events[index]
+
+        // Find the option with the most votes
+        guard let winner = event.locationOptions.max(by: { $0.voteCount < $1.voteCount }) else {
+            return
+        }
+
+        let resolvedLocation = winner.address != nil
+            ? "\(winner.name), \(winner.address!)"
+            : winner.name
+
+        // Update CloudKit
+        let recordID = CKRecord.ID(recordName: eventId)
+        let record = try await database.record(for: recordID)
+        record["locationVotingStatus"] = LocationVotingStatus.resolved.rawValue
+        record["resolvedLocationId"] = winner.id
+        record["location"] = resolvedLocation
+        try await database.save(record)
+
+        // Update local state
+        let old = events[index]
+        events[index] = Event(
+            id: old.id, title: old.title, scheduledAt: old.scheduledAt,
+            location: resolvedLocation, creatorId: old.creatorId,
+            threshold: old.threshold, status: old.status, summary: old.summary,
+            guests: old.guests, isAnonymous: old.isAnonymous,
+            showBailOMeter: old.showBailOMeter, showVotingStatus: old.showVotingStatus,
+            isBailEvent: old.isBailEvent,
+            locationVotingStatus: .resolved,
+            locationOptions: old.locationOptions,
+            resolvedLocationId: winner.id,
+            createdAt: old.createdAt
+        )
+    }
+
+    /// Fetches location options + votes for an event record, returns LocationOption array.
+    private func fetchLocationOptions(eventRecordID: CKRecord.ID) async throws -> [LocationOption] {
+        let eventRef = CKRecord.Reference(recordID: eventRecordID, action: .deleteSelf)
+
+        // Fetch options
+        let optPred = NSPredicate(format: "eventId == %@", eventRef)
+        let optQuery = CKQuery(recordType: RecordType.locationOption, predicate: optPred)
+
+        var options: [LocationOption] = []
+        do {
+            let (optResults, _) = try await database.records(matching: optQuery)
+            for (_, result) in optResults {
+                if let rec = try? result.get() {
+                    options.append(LocationOption(
+                        id: rec.recordID.recordName,
+                        eventId: eventRecordID.recordName,
+                        name: rec["name"] as? String ?? "",
+                        address: rec["address"] as? String,
+                        addedBy: rec["addedBy"] as? String ?? "",
+                        voteCount: 0,
+                        voters: []
+                    ))
+                }
+            }
+        } catch {
+            // Schema may not exist yet
+            return []
+        }
+
+        guard !options.isEmpty else { return [] }
+
+        // Fetch votes for these options
+        let votePred = NSPredicate(format: "eventId == %@", eventRef)
+        let voteQuery = CKQuery(recordType: RecordType.locationVote, predicate: votePred)
+
+        do {
+            let (voteResults, _) = try await database.records(matching: voteQuery)
+            for (_, result) in voteResults {
+                if let voteRec = try? result.get(),
+                   let optRef = voteRec["locationOptionId"] as? CKRecord.Reference {
+                    let optId = optRef.recordID.recordName
+                    if let idx = options.firstIndex(where: { $0.id == optId }) {
+                        options[idx].voteCount += 1
+                        options[idx].voters.append(LocationVoter(
+                            id: voteRec.recordID.recordName,
+                            guestId: voteRec["voterId"] as? String ?? "",
+                            displayName: voteRec["voterDisplayName"] as? String ?? "Someone"
+                        ))
+                    }
+                }
+            }
+        } catch {
+            // No votes yet
+        }
+
+        return options
     }
 
     // MARK: - Private Helpers
@@ -561,6 +750,14 @@ final class CloudKitService: ObservableObject {
         let statusRaw = record["status"] as? String ?? "active"
         let status = EventStatus(rawValue: statusRaw) ?? .active
 
+        // Location voting
+        let locVotingRaw = record["locationVotingStatus"] as? String ?? "disabled"
+        let locVotingStatus = LocationVotingStatus(rawValue: locVotingRaw) ?? .disabled
+        var locOptions: [LocationOption] = []
+        if locVotingStatus != .disabled {
+            locOptions = try await fetchLocationOptions(eventRecordID: record.recordID)
+        }
+
         return Event(
             id: eventID,
             title: record["title"] as? String ?? "Untitled",
@@ -579,6 +776,9 @@ final class CloudKitService: ObservableObject {
             showBailOMeter: record["showBailOMeter"] as? Bool ?? true,
             showVotingStatus: record["showVotingStatus"] as? Bool ?? true,
             isBailEvent: record["isBailEvent"] as? Bool ?? true,
+            locationVotingStatus: locVotingStatus,
+            locationOptions: locOptions,
+            resolvedLocationId: record["resolvedLocationId"] as? String,
             createdAt: record["createdAt"] as? Date ?? Date()
         )
     }

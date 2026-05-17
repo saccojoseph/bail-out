@@ -10,6 +10,7 @@ enum AppScreen {
     case createEvent
     case eventDetail
     case vote
+    case locationVote
     case cancelled
 }
 
@@ -87,6 +88,7 @@ struct ContentView: View {
                         isCreator: cloudKit.userRecordID?.recordName == event.creatorId,
                         onBack: { screen = .home },
                         onVote: { screen = .vote },
+                        onLocationVote: { screen = .locationVote },
                         onAddGuests: { guests in
                             for g in guests {
                                 handleAddGuest(eventId: event.id, name: g.name, phone: g.phone, color: g.color)
@@ -109,6 +111,19 @@ struct ContentView: View {
                         onBack: { screen = .eventDetail },
                         onVoteCast: { choice in
                             handleVote(eventId: event.id, choice: choice)
+                        }
+                    )
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+
+            case .locationVote:
+                if let event = selectedEvent {
+                    LocationVoteView(
+                        event: event,
+                        currentUserId: cloudKit.userRecordID?.recordName ?? "",
+                        onBack: { screen = .eventDetail },
+                        onVote: { optionId in
+                            handleLocationVote(eventId: event.id, locationOptionId: optionId)
                         }
                     )
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -216,6 +231,9 @@ struct ContentView: View {
                      phoneNumber: $0.phoneNumber ?? "",
                      avatarColor: $0.avatarColor)
                 }
+                let locationOpts = localEvent.locationOptions.map {
+                    (name: $0.name, address: $0.address)
+                }
                 let cloudEvent = try await cloudKit.createEvent(
                     title: localEvent.title,
                     scheduledAt: localEvent.scheduledAt,
@@ -225,6 +243,8 @@ struct ContentView: View {
                     showBailOMeter: localEvent.showBailOMeter,
                     showVotingStatus: localEvent.showVotingStatus,
                     isBailEvent: localEvent.isBailEvent,
+                    locationVotingStatus: localEvent.locationVotingStatus,
+                    locationOptions: locationOpts,
                     guests: guests
                 )
                 // Replace local placeholder with CloudKit version (has real IDs)
@@ -277,6 +297,9 @@ struct ContentView: View {
                 showBailOMeter: old.showBailOMeter,
                 showVotingStatus: old.showVotingStatus,
                 isBailEvent: old.isBailEvent,
+                locationVotingStatus: old.locationVotingStatus,
+                locationOptions: old.locationOptions,
+                resolvedLocationId: old.resolvedLocationId,
                 createdAt: old.createdAt
             )
             cloudKit.events[index] = updated
@@ -341,6 +364,9 @@ struct ContentView: View {
                 guests: old.guests.filter { $0.id != guestId },
                 isAnonymous: old.isAnonymous, showBailOMeter: old.showBailOMeter,
                 showVotingStatus: old.showVotingStatus, isBailEvent: old.isBailEvent,
+                locationVotingStatus: old.locationVotingStatus,
+                locationOptions: old.locationOptions,
+                resolvedLocationId: old.resolvedLocationId,
                 createdAt: old.createdAt
             )
             cloudKit.events[index] = updated
@@ -370,7 +396,11 @@ struct ContentView: View {
                 threshold: old.threshold, status: .cancelled, summary: old.summary,
                 guests: old.guests, isAnonymous: old.isAnonymous,
                 showBailOMeter: old.showBailOMeter, showVotingStatus: old.showVotingStatus,
-                isBailEvent: old.isBailEvent, createdAt: old.createdAt
+                isBailEvent: old.isBailEvent,
+                locationVotingStatus: old.locationVotingStatus,
+                locationOptions: old.locationOptions,
+                resolvedLocationId: old.resolvedLocationId,
+                createdAt: old.createdAt
             )
             cloudKit.events[index] = updated
             selectedEvent = updated
@@ -399,7 +429,11 @@ struct ContentView: View {
                 threshold: old.threshold, status: old.status, summary: old.summary,
                 guests: old.guests, isAnonymous: old.isAnonymous,
                 showBailOMeter: old.showBailOMeter, showVotingStatus: old.showVotingStatus,
-                isBailEvent: old.isBailEvent, createdAt: old.createdAt
+                isBailEvent: old.isBailEvent,
+                locationVotingStatus: old.locationVotingStatus,
+                locationOptions: old.locationOptions,
+                resolvedLocationId: old.resolvedLocationId,
+                createdAt: old.createdAt
             )
             cloudKit.events[index] = updated
             selectedEvent = updated
@@ -409,6 +443,70 @@ struct ContentView: View {
             catch {
                 errorTitle = "Couldn't update title"
                 errorMessage = "The name was saved locally but couldn't sync to iCloud."
+            }
+        }
+    }
+
+    // MARK: - Location Vote
+
+    private func handleLocationVote(eventId: String, locationOptionId: String) {
+        // Optimistic local update — increment vote count on selected option
+        if let index = cloudKit.events.firstIndex(where: { $0.id == eventId }) {
+            let old = cloudKit.events[index]
+            var updatedOptions = old.locationOptions
+            if let optIdx = updatedOptions.firstIndex(where: { $0.id == locationOptionId }) {
+                updatedOptions[optIdx].voteCount += 1
+                updatedOptions[optIdx].voters.append(
+                    LocationVoter(id: UUID().uuidString, guestId: cloudKit.userRecordID?.recordName ?? "", displayName: userName)
+                )
+            }
+
+            // Check if all guests have voted (simple heuristic: total votes == guest count)
+            let totalVotes = updatedOptions.reduce(0) { $0 + $1.voteCount }
+            let allVoted = totalVotes >= old.guests.count
+
+            let newStatus: LocationVotingStatus = allVoted ? .resolved : old.locationVotingStatus
+            let winningId: String? = allVoted
+                ? updatedOptions.max(by: { $0.voteCount < $1.voteCount })?.id
+                : old.resolvedLocationId
+            let resolvedLocation: String? = allVoted
+                ? (updatedOptions.first(where: { $0.id == winningId })
+                    .map { opt in opt.address != nil ? "\(opt.name), \(opt.address!)" : opt.name } ?? old.location)
+                : old.location
+
+            let updated = Event(
+                id: old.id, title: old.title, scheduledAt: old.scheduledAt,
+                location: resolvedLocation, creatorId: old.creatorId,
+                threshold: old.threshold, status: old.status, summary: old.summary,
+                guests: old.guests, isAnonymous: old.isAnonymous,
+                showBailOMeter: old.showBailOMeter, showVotingStatus: old.showVotingStatus,
+                isBailEvent: old.isBailEvent,
+                locationVotingStatus: newStatus,
+                locationOptions: updatedOptions,
+                resolvedLocationId: winningId,
+                createdAt: old.createdAt
+            )
+            cloudKit.events[index] = updated
+            selectedEvent = updated
+            screen = .eventDetail
+        }
+
+        // Sync to CloudKit
+        Task {
+            do {
+                try await cloudKit.castLocationVote(
+                    eventId: eventId,
+                    locationOptionId: locationOptionId,
+                    voterDisplayName: userName
+                )
+                // Check if vote should auto-resolve
+                if let event = cloudKit.events.first(where: { $0.id == eventId }),
+                   event.locationVotingStatus == .resolved {
+                    try await cloudKit.resolveLocationVote(eventId: eventId)
+                }
+            } catch {
+                errorTitle = "Vote didn't sync"
+                errorMessage = "Your location vote was saved locally but couldn't reach iCloud."
             }
         }
     }
@@ -479,7 +577,11 @@ struct ContentView: View {
                     threshold: e.threshold, status: .cancelled, summary: e.summary,
                     guests: e.guests, isAnonymous: e.isAnonymous,
                     showBailOMeter: e.showBailOMeter, showVotingStatus: e.showVotingStatus,
-                    isBailEvent: e.isBailEvent, createdAt: e.createdAt
+                    isBailEvent: e.isBailEvent,
+                    locationVotingStatus: e.locationVotingStatus,
+                    locationOptions: e.locationOptions,
+                    resolvedLocationId: e.resolvedLocationId,
+                    createdAt: e.createdAt
                 )
                 selectedEvent = cancelled
                 screen = .cancelled

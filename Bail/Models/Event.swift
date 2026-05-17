@@ -45,7 +45,10 @@ struct Event: Identifiable, Codable {
     let isAnonymous: Bool
     let showBailOMeter: Bool
     let showVotingStatus: Bool
-    let isBailEvent: Bool   // false = plain event, no voting/auto-cancel
+    let isBailEvent: Bool               // false = plain event, no voting/auto-cancel
+    let locationVotingStatus: LocationVotingStatus  // .disabled = single fixed location
+    let locationOptions: [LocationOption]            // empty when disabled
+    let resolvedLocationId: String?                  // id of winning option after vote closes
     let createdAt: Date
 }
 

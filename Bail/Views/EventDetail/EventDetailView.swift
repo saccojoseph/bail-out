@@ -7,6 +7,7 @@ struct EventDetailView: View {
     var isCreator: Bool = false
     var onBack: () -> Void = {}
     var onVote: () -> Void = {}
+    var onLocationVote: () -> Void = {}
     var onAddGuests: ([(name: String, phone: String, color: String)]) -> Void = { _ in }
     var onRemoveGuest: (String) -> Void = { _ in }
     var onCancelEvent: () -> Void = {}
@@ -35,11 +36,14 @@ struct EventDetailView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
                         eventHeader
+                        if event.locationVotingStatus != .disabled {
+                            locationVoteCard
+                        }
                         guestsCard
-                        if event.isBailEvent && event.showBailOMeter {
+                        if event.isBailEvent && event.showBailOMeter && locationResolved {
                             bailOMeterCard
                         }
-                        if event.isBailEvent {
+                        if event.isBailEvent && locationResolved {
                             voteSection
                         }
                         if isCreator && event.status == .active {
@@ -496,6 +500,98 @@ struct EventDetailView: View {
         manualName = ""
         manualPhone = ""
         showAddGuest = false
+    }
+
+    // MARK: - Location helpers
+
+    /// Location voting is either disabled or already resolved — bail voting can proceed.
+    private var locationResolved: Bool {
+        event.locationVotingStatus == .disabled || event.locationVotingStatus == .resolved
+    }
+
+    // MARK: - Location vote card
+
+    private var locationVoteCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("LOCATION VOTE")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(BailColor.textSecondary)
+                    .tracking(1)
+                Spacer()
+                if event.locationVotingStatus == .resolved {
+                    Text("DECIDED")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(BailColor.teal)
+                        .tracking(0.5)
+                } else {
+                    Text("VOTING")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(BailColor.accentStart)
+                        .tracking(0.5)
+                }
+            }
+
+            if event.locationVotingStatus == .resolved,
+               let winnerId = event.resolvedLocationId,
+               let winner = event.locationOptions.first(where: { $0.id == winnerId }) {
+                // Show resolved winner
+                HStack(spacing: 10) {
+                    Image(systemName: "mappin.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(BailColor.teal)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(winner.name)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(BailColor.textPrimary)
+                        if let address = winner.address, !address.isEmpty {
+                            Text(address)
+                                .font(.system(size: 12))
+                                .foregroundColor(BailColor.textSecondary)
+                        }
+                    }
+                    Spacer()
+                    Text("\(winner.voteCount) votes")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(BailColor.teal)
+                }
+            } else {
+                // Show options summary + vote button
+                ForEach(event.locationOptions.prefix(3)) { option in
+                    HStack(spacing: 10) {
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(BailColor.textMuted)
+                        Text(option.name)
+                            .font(.system(size: 13))
+                            .foregroundColor(BailColor.textPrimary)
+                            .lineLimit(1)
+                        Spacer()
+                        Text("\(option.voteCount)")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(BailColor.textSecondary)
+                    }
+                }
+
+                Button(action: onLocationVote) {
+                    Text("Vote on Location")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(BailGradient.accent)
+                        .cornerRadius(BailRadius.md)
+                }
+                .padding(.top, 4)
+            }
+        }
+        .padding(18)
+        .background(BailColor.surface)
+        .cornerRadius(BailRadius.xl)
+        .overlay(
+            RoundedRectangle(cornerRadius: BailRadius.xl)
+                .stroke(BailColor.cardBorder, lineWidth: 1)
+        )
     }
 
     // MARK: - Bail-o-meter card

@@ -15,6 +15,7 @@ struct CreateEventView: View {
     @State private var title = ""
     @State private var scheduledAt = Date()
     @State private var location = ""
+    @State private var locationAddress = ""
     @State private var selectedContactIds: Set<String> = []
     @State private var searchText = ""
     @State private var threshold: BailThreshold = .majority
@@ -23,10 +24,21 @@ struct CreateEventView: View {
     @State private var showBailOMeter = true
     @State private var showVotingStatus = true
 
+    // Location voting
+    @State private var locationMode: LocationMode = .fixed
+    @State private var locationVoteOptions: [(name: String, address: String)] = []
+    @State private var newOptionName = ""
+    @State private var newOptionAddress = ""
+
     @State private var pendingEvent: Event? = nil
     @State private var showingMessageComposer = false
     @State private var messageRecipients: [String] = []
     @State private var messageBody: String = ""
+
+    enum LocationMode: String {
+        case fixed  // single location (current behavior)
+        case vote   // guests vote on location
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -136,7 +148,127 @@ struct CreateEventView: View {
             VStack(spacing: 12) {
                 inputField(label: "Event Name", placeholder: "e.g. Dinner at Zinc", text: $title)
                 dateField
-                inputField(label: "Location (Optional)", placeholder: "Add a location...", text: $location)
+                locationModeSection
+            }
+        }
+    }
+
+    // MARK: - Location mode
+
+    private var locationModeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("LOCATION")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(BailColor.textSecondary)
+                .tracking(1)
+
+            // Mode picker
+            HStack(spacing: 8) {
+                locationModeButton(mode: .fixed, label: "Fixed Place", icon: "mappin")
+                locationModeButton(mode: .vote, label: "Let Guests Vote", icon: "hand.raised")
+            }
+
+            if locationMode == .fixed {
+                fixedLocationPicker
+            } else {
+                locationVotePicker
+            }
+        }
+    }
+
+    private func locationModeButton(mode: LocationMode, label: String, icon: String) -> some View {
+        let isSelected = locationMode == mode
+        return Button(action: { locationMode = mode }) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundColor(isSelected ? .white : BailColor.textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(isSelected ? AnyShapeStyle(BailGradient.accent) : AnyShapeStyle(BailColor.surface))
+            .cornerRadius(BailRadius.md)
+            .overlay(
+                RoundedRectangle(cornerRadius: BailRadius.md)
+                    .stroke(isSelected ? Color.clear : BailColor.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var fixedLocationPicker: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            LocationSearchField(
+                locationName: $location,
+                locationAddress: $locationAddress,
+                placeholder: "Search for a place..."
+            )
+            Text("Optional — leave blank if undecided")
+                .font(.system(size: 11))
+                .foregroundColor(BailColor.textMuted)
+        }
+    }
+
+    // MARK: - Location vote picker (multi-option)
+
+    private var locationVotePicker: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Add 2+ places for guests to vote on:")
+                .font(.system(size: 13))
+                .foregroundColor(BailColor.textSecondary)
+
+            // Current options
+            ForEach(Array(locationVoteOptions.enumerated()), id: \.offset) { index, option in
+                HStack(spacing: 10) {
+                    Image(systemName: "mappin.circle.fill")
+                        .foregroundColor(BailColor.accentStart)
+                        .font(.system(size: 16))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(option.name)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(BailColor.textPrimary)
+                            .lineLimit(1)
+                        if !option.address.isEmpty {
+                            Text(option.address)
+                                .font(.system(size: 11))
+                                .foregroundColor(BailColor.textMuted)
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer()
+                    Button(action: { locationVoteOptions.remove(at: index) }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(BailColor.textMuted)
+                            .font(.system(size: 16))
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(BailColor.surface)
+                .cornerRadius(BailRadius.md)
+                .overlay(
+                    RoundedRectangle(cornerRadius: BailRadius.md)
+                        .stroke(BailColor.border, lineWidth: 1)
+                )
+            }
+
+            // Add new option search
+            LocationSearchField(
+                locationName: $newOptionName,
+                locationAddress: $newOptionAddress,
+                placeholder: "Search to add a place..."
+            ) { name, address in
+                locationVoteOptions.append((name: name, address: address))
+                newOptionName = ""
+                newOptionAddress = ""
+            }
+
+            if locationVoteOptions.count < 2 {
+                Text("Add at least \(2 - locationVoteOptions.count) more place\(locationVoteOptions.count == 1 ? "" : "s")")
+                    .font(.system(size: 12))
+                    .foregroundColor(BailColor.accentStart)
             }
         }
     }
@@ -555,11 +687,32 @@ struct CreateEventView: View {
         case .majority: requiredBails = chosenGuests.count / 2 + 1
         case .any:      requiredBails = 1
         }
+
+        let votingStatus: LocationVotingStatus = locationMode == .vote && locationVoteOptions.count >= 2
+            ? .voting : .disabled
+        let options: [LocationOption] = votingStatus == .voting
+            ? locationVoteOptions.map { opt in
+                LocationOption(
+                    id: UUID().uuidString,
+                    eventId: newId,
+                    name: opt.name,
+                    address: opt.address.isEmpty ? nil : opt.address,
+                    addedBy: "u0",
+                    voteCount: 0,
+                    voters: []
+                )
+            }
+            : []
+
+        let eventLocation: String? = locationMode == .fixed
+            ? (location.isEmpty ? nil : location)
+            : nil  // location determined by vote
+
         return Event(
             id: newId,
             title: title.isEmpty ? "Untitled Plan" : title,
             scheduledAt: scheduledAt,
-            location: location.isEmpty ? nil : location,
+            location: eventLocation,
             creatorId: "u0",
             threshold: threshold,
             status: .active,
@@ -569,6 +722,9 @@ struct CreateEventView: View {
             showBailOMeter: showBailOMeter,
             showVotingStatus: showVotingStatus,
             isBailEvent: isBailEvent,
+            locationVotingStatus: votingStatus,
+            locationOptions: options,
+            resolvedLocationId: nil,
             createdAt: Date()
         )
     }
