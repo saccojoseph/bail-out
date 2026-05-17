@@ -149,6 +149,13 @@ Bail/
 [x] iMessage triggered after adding guests to existing events
 [x] App Store submission package (metadata, GitHub Pages site, privacy manifest, screenshots)
 [x] Renamed from "bail." to "bail.out" (App Store name, UI, emails)
+[x] App Store submitted — "Waiting for Review" (submitted May 17, 2026, build 1.0 (1))
+[x] Age rating: 4+ (User-Generated Content declared)
+[x] App Privacy published (Name, Phone Number, Other User Content, User ID — all App Functionality, not linked to identity, not tracked)
+[x] Export compliance: None of the algorithms (OS-level encryption only via CloudKit/HTTPS)
+[x] TARGETED_DEVICE_FAMILY = "1" (iPhone only)
+[x] App icon alpha stripped (sips JPEG roundtrip)
+[x] GitHub Pages live: https://saccojoseph.github.io/bail-out/
 
 ## Location Voting Architecture
 - **Separate from bail voting** — location vote happens FIRST, is a prerequisite
@@ -160,11 +167,10 @@ Bail/
 - **Event fields**: locationVotingStatus, locationOptions, resolvedLocationId
 
 ## Next Steps
-1. Test location voting end-to-end on real device
-2. Verify vote CloudKit sync on real device
-3. Test SMS invite + deep link end-to-end on real device
-4. Test push notifications on real device
-5. Submit to App Store
+1. Wait for Apple review (typically 24–48 hours)
+2. If approved → app goes live on App Store automatically (or manually release if "Manual Release" was selected)
+3. Test on real device while waiting: location voting, CloudKit bail vote sync, SMS deep link, push notifications
+4. If rejected → read Apple's notes, fix, resubmit from same version page
 
 ## Commands
 - Build: Cmd+B in Xcode (or `xcodebuild -scheme Bail -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`)
