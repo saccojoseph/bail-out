@@ -367,6 +367,30 @@ struct HomeView: View {
                                     .stroke(BailColor.cardBorder, lineWidth: 1)
                             )
                         }
+
+                        Link(destination: URL(string: "https://x.com/BailOutAppHQ")!) {
+                            HStack {
+                                Text("𝕏")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(BailColor.textPrimary)
+                                Text("Follow @BailOutAppHQ")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(BailColor.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(BailColor.textMuted)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 16)
+                            .background(BailColor.surface)
+                            .cornerRadius(BailRadius.xl)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: BailRadius.xl)
+                                    .stroke(BailColor.cardBorder, lineWidth: 1)
+                            )
+                        }
                     }
 
                     // Sign out
