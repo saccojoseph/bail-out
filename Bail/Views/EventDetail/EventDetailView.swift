@@ -676,6 +676,8 @@ struct EventDetailView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     EventDetailView(event: PreviewData.sampleEvents[0])
 }
+#endif

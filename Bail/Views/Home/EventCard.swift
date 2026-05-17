@@ -102,6 +102,7 @@ struct EventCard: View {
     }
 }
 
+#if DEBUG
 #Preview {
     ZStack {
         BailColor.background.ignoresSafeArea()
@@ -109,3 +110,4 @@ struct EventCard: View {
             .padding()
     }
 }
+#endif

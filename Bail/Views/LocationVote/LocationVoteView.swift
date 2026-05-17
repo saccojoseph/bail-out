@@ -273,9 +273,11 @@ struct LocationVoteView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     LocationVoteView(
         event: PreviewData.sampleEvents[2],
         currentUserId: "u0"
     )
 }
+#endif

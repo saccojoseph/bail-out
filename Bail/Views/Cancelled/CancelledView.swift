@@ -71,6 +71,8 @@ struct CancelledView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     CancelledView(event: PreviewData.sampleEvents[0])
 }
+#endif

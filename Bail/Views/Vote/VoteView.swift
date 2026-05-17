@@ -217,6 +217,8 @@ struct VoteView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     VoteView(event: PreviewData.sampleEvents[0])
 }
+#endif
