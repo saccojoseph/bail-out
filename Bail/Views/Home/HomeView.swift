@@ -324,7 +324,7 @@ struct HomeView: View {
 
                     // Feedback
                     VStack(spacing: 10) {
-                        Link(destination: URL(string: "mailto:bail.app.official@gmail.com?subject=Bail%20-%20Report%20Bug")!) {
+                        Link(destination: URL(string: "mailto:bail.out.app.official@gmail.com?subject=Bail%20-%20Report%20Bug")!) {
                             HStack {
                                 Text("🐛")
                                 Text("Report Bug")
@@ -346,7 +346,7 @@ struct HomeView: View {
                             )
                         }
 
-                        Link(destination: URL(string: "mailto:bail.app.official@gmail.com?subject=Bail%20-%20Request%20Feature")!) {
+                        Link(destination: URL(string: "mailto:bail.out.app.official@gmail.com?subject=Bail%20-%20Request%20Feature")!) {
                             HStack {
                                 Text("💡")
                                 Text("Request Feature")

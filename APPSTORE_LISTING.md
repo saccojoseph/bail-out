@@ -162,7 +162,7 @@ Votes are stored in a separate CloudKit record type (BailVote) tied to the event
 
 If you'd like a demo account or sample data, please reach out — happy to provide.
 
-Contact: bail.outapp.official@gmail.com
+Contact: bail.out.app.official@gmail.com
 ```
 
 ---
