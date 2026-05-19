@@ -203,6 +203,17 @@ struct EventDetailView: View {
                     .tracking(1)
                 Spacer()
                 if isCreator {
+                    ShareLink(item: inviteText) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("Share")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundColor(BailColor.textSecondary)
+                    }
+                    .padding(.trailing, 12)
+
                     Button(action: { showAddGuest = true }) {
                         HStack(spacing: 4) {
                             Image(systemName: "plus")
@@ -489,6 +500,10 @@ struct EventDetailView: View {
             }
         }
 #endif
+    }
+
+    private var inviteText: String {
+        "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Tap to open in bail.out: bail://event/\(event.id) 👀\n\nGet the app: https://apps.apple.com/app/bail-out/id6770131851"
     }
 
     private func dismissAddSheet() {
