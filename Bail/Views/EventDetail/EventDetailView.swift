@@ -22,9 +22,7 @@ struct EventDetailView: View {
     @State private var showCancelConfirm = false
     @State private var showEditTitle = false
     @State private var editedTitle = ""
-    @State private var showingMessageComposer = false
-    @State private var messageRecipients: [String] = []
-    @State private var messageBody: String = ""
+    @State private var pendingMessage: PendingMessage? = nil
 
     var body: some View {
         ZStack {
@@ -63,8 +61,8 @@ struct EventDetailView: View {
             editTitleSheet
         }
 #if os(iOS)
-        .sheet(isPresented: $showingMessageComposer) {
-            MessageComposer(recipients: messageRecipients, body: messageBody) {}
+        .sheet(item: $pendingMessage) { msg in
+            MessageComposer(recipients: msg.recipients, body: msg.body) {}
                 .ignoresSafeArea()
         }
 #endif
@@ -484,11 +482,10 @@ struct EventDetailView: View {
 
 #if os(iOS)
         if MessageComposer.canSend && !phones.isEmpty {
-            messageRecipients = phones
-            messageBody = "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Open in bail. to vote: bail://event/\(event.id) 👀"
+            let body = "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Tap to open in bail.out: bail://event/\(event.id) 👀"
             // Small delay so the add-guest sheet finishes dismissing before iMessage slides up
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                showingMessageComposer = true
+                pendingMessage = PendingMessage(recipients: phones, body: body)
             }
         }
 #endif

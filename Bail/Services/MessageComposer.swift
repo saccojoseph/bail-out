@@ -1,3 +1,14 @@
+import Foundation
+
+/// Holds the recipients and body for a pending SMS invite.
+/// Using Identifiable + .sheet(item:) ensures SwiftUI captures values
+/// atomically when the sheet is triggered, avoiding empty-body bugs.
+struct PendingMessage: Identifiable {
+    let id = UUID()
+    let recipients: [String]
+    let body: String
+}
+
 #if os(iOS)
 import MessageUI
 import SwiftUI

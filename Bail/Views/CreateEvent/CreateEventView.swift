@@ -31,9 +31,7 @@ struct CreateEventView: View {
     @State private var newOptionAddress = ""
 
     @State private var pendingEvent: Event? = nil
-    @State private var showingMessageComposer = false
-    @State private var messageRecipients: [String] = []
-    @State private var messageBody: String = ""
+    @State private var pendingMessage: PendingMessage? = nil
 
     enum LocationMode: String {
         case fixed  // single location (current behavior)
@@ -70,13 +68,12 @@ struct CreateEventView: View {
             if new == 2 { Task { await contactsService.requestAccess() } }
         }
 #if os(iOS)
-        .sheet(isPresented: $showingMessageComposer) {
-            MessageComposer(recipients: messageRecipients, body: messageBody) {
+        .sheet(item: $pendingMessage) { msg in
+            MessageComposer(recipients: msg.recipients, body: msg.body) {
                 if let event = pendingEvent { onComplete(event) }
             } onSent: {
                 if !hasSentFirstInvite {
                     hasSentFirstInvite = true
-                    // Small delay so the sheet has fully dismissed before the prompt appears
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         requestReview()
                     }
@@ -652,11 +649,11 @@ struct CreateEventView: View {
             pendingEvent = event
 #if os(iOS)
             if MessageComposer.canSend && !selectedContactIds.isEmpty {
-                messageRecipients = contactsService.contacts
+                let recipients = contactsService.contacts
                     .filter { selectedContactIds.contains($0.id) }
                     .map { $0.phoneNumber }
-                messageBody = "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Open in bail. to vote: bail://event/\(event.id) 👀"
-                showingMessageComposer = true
+                let body = "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Tap to open in bail.out: bail://event/\(event.id) 👀"
+                pendingMessage = PendingMessage(recipients: recipients, body: body)
             } else {
                 onComplete(event)
             }
