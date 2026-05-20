@@ -16,7 +16,11 @@ enum AppScreen {
 
 struct ContentView: View {
     @StateObject private var cloudKit = CloudKitService.shared
-    @State private var screen: AppScreen = .splash
+    @State private var screen: AppScreen = {
+        let completed = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+        let seen = UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
+        return (completed && seen) ? .home : .splash
+    }()
     @State private var selectedEvent: Event?
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -70,6 +74,17 @@ struct ContentView: View {
                     onSignOut: { handleSignOut() }
                 )
                 .transition(.opacity)
+                .task {
+                    // Returning users skip splash — kick off CloudKit setup here
+                    if cloudKit.userRecordID == nil {
+                        await cloudKit.setup()
+                        await fetchUserName()
+                        isLoading = true
+                        try? await cloudKit.fetchEvents()
+                        await cloudKit.subscribeToVoteChanges()
+                        isLoading = false
+                    }
+                }
 
             case .createEvent:
                 CreateEventView(
