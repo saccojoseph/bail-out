@@ -225,6 +225,10 @@ struct ContentView: View {
 
         // Sync to CloudKit in background
         Task {
+            // Re-run setup if userRecordID isn't ready yet (handles cold-launch race condition)
+            if cloudKit.userRecordID == nil {
+                await cloudKit.setup()
+            }
             do {
                 let guests = localEvent.guests.map {
                     (displayName: $0.displayName,
@@ -252,8 +256,16 @@ struct ContentView: View {
                     cloudKit.events[index] = cloudEvent
                 }
             } catch {
+                print("[CloudKit] createEvent failed: \(error)")
+                if let ckError = error as? CKError {
+                    print("[CloudKit] CKError code: \(ckError.code.rawValue) — \(ckError.localizedDescription)")
+                }
                 errorTitle = "Couldn't save plan"
-                errorMessage = "Your plan was created locally but couldn't sync to iCloud. It'll try again next time you open the app."
+                if case CloudKitError.notAuthenticated = error {
+                    errorMessage = "iCloud is not available. Make sure you're signed into iCloud in Settings and try again."
+                } else {
+                    errorMessage = "Your plan was created locally but couldn't sync to iCloud. Check your connection and try again."
+                }
             }
         }
     }
