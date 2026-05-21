@@ -1,5 +1,6 @@
 import CloudKit
 import Combine
+import Contacts
 import Foundation
 
 // MARK: - Record type constants
@@ -36,7 +37,7 @@ final class CloudKitService: ObservableObject {
 
     // MARK: - Setup
 
-    /// Call once on app launch. Checks iCloud status and fetches the user record ID.
+    /// Call once on app launch. Checks iCloud status, fetches user record ID, and resolves phone number.
     func setup() async {
         do {
             let status = try await container.accountStatus()
@@ -50,6 +51,24 @@ final class CloudKitService: ObservableObject {
             iCloudAvailable = false
             print("[CloudKit] Setup error: \(error.localizedDescription)")
         }
+
+        // Try to get the user's own phone number from their Me contact card
+        await resolveCurrentUserPhone()
+    }
+
+    /// Loads the stored phone number from UserDefaults (set by user in Profile).
+    private func resolveCurrentUserPhone() async {
+        if let stored = UserDefaults.standard.string(forKey: "currentUserPhone"), !stored.isEmpty {
+            currentUserPhone = stored
+            print("[CloudKit] Current user phone loaded: \(stored)")
+        }
+    }
+
+    /// Call this when the user explicitly provides their phone number (e.g. onboarding).
+    func setCurrentUserPhone(_ phone: String) {
+        let normalized = PhoneNumberUtils.normalize(phone)
+        currentUserPhone = normalized
+        UserDefaults.standard.set(normalized, forKey: "currentUserPhone")
     }
 
     // MARK: - Create Event

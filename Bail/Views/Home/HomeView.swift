@@ -12,6 +12,9 @@ struct HomeView: View {
 
     @State private var activeHomeTab: HomeTab = .upcoming
     @State private var activeBottomTab: BottomTab = .home
+    @AppStorage("currentUserPhone") private var storedPhone: String = ""
+    @State private var phoneInput: String = ""
+    @State private var showPhoneSaved = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -300,6 +303,62 @@ struct HomeView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: BailRadius.xl)
                             .stroke(BailColor.cardBorder, lineWidth: 1)
+                    )
+
+                    // Phone number card
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("YOUR PHONE NUMBER")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(BailColor.textSecondary)
+                            .tracking(1)
+                        Text("Required to see plans you've been invited to.")
+                            .font(.system(size: 13))
+                            .foregroundColor(BailColor.textMuted)
+                        HStack(spacing: 10) {
+                            TextField(storedPhone.isEmpty ? "+1 (555) 000-0000" : storedPhone, text: $phoneInput)
+                                .font(.system(size: 15))
+                                .foregroundColor(BailColor.textPrimary)
+                                .keyboardType(.phonePad)
+                            if showPhoneSaved {
+                                Text("Saved ✓")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(BailColor.teal)
+                            } else {
+                                Button("Save") {
+                                    let normalized = phoneInput.trimmingCharacters(in: .whitespaces)
+                                    guard !normalized.isEmpty else { return }
+                                    storedPhone = normalized
+                                    UserDefaults.standard.set(normalized, forKey: "currentUserPhone")
+                                    showPhoneSaved = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                        showPhoneSaved = false
+                                        phoneInput = ""
+                                    }
+                                }
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(BailColor.accentStart)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(BailColor.surface2)
+                        .cornerRadius(BailRadius.lg)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: BailRadius.lg)
+                                .stroke(storedPhone.isEmpty ? BailColor.accentStart.opacity(0.4) : BailColor.cardBorder, lineWidth: 1)
+                        )
+                        if !storedPhone.isEmpty {
+                            Text("Current: \(storedPhone)")
+                                .font(.system(size: 12))
+                                .foregroundColor(BailColor.textMuted)
+                        }
+                    }
+                    .padding(18)
+                    .background(BailColor.surface)
+                    .cornerRadius(BailRadius.xl)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: BailRadius.xl)
+                            .stroke(storedPhone.isEmpty ? BailColor.accentStart.opacity(0.3) : BailColor.cardBorder, lineWidth: storedPhone.isEmpty ? 1.5 : 1)
                     )
 
                     // Info card
