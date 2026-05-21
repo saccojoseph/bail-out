@@ -661,6 +661,10 @@ struct ContentView: View {
         // Otherwise fetch from CloudKit, then navigate
         Task {
             do {
+                // Ensure CloudKit is ready before fetching
+                if cloudKit.userRecordID == nil {
+                    await cloudKit.setup()
+                }
                 try await cloudKit.fetchEvents()
                 if let event = cloudKit.events.first(where: { $0.id == eventId }) {
                     selectedEvent = event
