@@ -454,6 +454,16 @@ final class CloudKitService: ObservableObject {
         }
     }
 
+    // MARK: - Fetch Single Event (for deep links)
+
+    /// Fetches a single event by ID directly — used for deep link navigation.
+    /// Works for any user who has the link, regardless of phone matching.
+    func fetchEvent(byId eventId: String) async throws -> Event {
+        let recordID = CKRecord.ID(recordName: eventId)
+        let record = try await database.record(for: recordID)
+        return try await buildEvent(from: record)
+    }
+
     // MARK: - Delete Event
 
     func deleteEvent(eventId: String) async throws {

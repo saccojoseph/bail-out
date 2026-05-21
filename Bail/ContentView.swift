@@ -658,24 +658,22 @@ struct ContentView: View {
             return
         }
 
-        // Otherwise fetch from CloudKit, then navigate
+        // Otherwise fetch directly by ID from CloudKit
         Task {
             do {
-                // Ensure CloudKit is ready before fetching
                 if cloudKit.userRecordID == nil {
                     await cloudKit.setup()
                 }
-                try await cloudKit.fetchEvents()
-                if let event = cloudKit.events.first(where: { $0.id == eventId }) {
-                    selectedEvent = event
-                    screen = .eventDetail
-                } else {
-                    errorTitle = "Plan not found"
-                    errorMessage = "That plan may have been deleted or you don't have access to it."
+                let event = try await cloudKit.fetchEvent(byId: eventId)
+                // Add to local events list if not already there
+                if !cloudKit.events.contains(where: { $0.id == eventId }) {
+                    cloudKit.events.append(event)
                 }
+                selectedEvent = event
+                screen = .eventDetail
             } catch {
-                errorTitle = "Couldn't open plan"
-                errorMessage = "There was a problem loading that plan from iCloud. Check your connection and try again."
+                errorTitle = "Plan not found"
+                errorMessage = "That plan may have been deleted or you don't have access to it."
             }
         }
     }
