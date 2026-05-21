@@ -39,6 +39,9 @@ struct HomeView: View {
         VStack(spacing: 0) {
             header
             tabRow
+            if storedPhone.isEmpty {
+                phoneNumberBanner
+            }
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 12) {
@@ -80,6 +83,40 @@ struct HomeView: View {
         case .upcoming: return events.filter { $0.status != .cancelled }
         case .past:     return events.filter { $0.status == .cancelled }
         }
+    }
+
+    // MARK: - Phone number banner
+
+    private var phoneNumberBanner: some View {
+        Button(action: { activeBottomTab = .profile }) {
+            HStack(spacing: 10) {
+                Text("📱")
+                    .font(.system(size: 16))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Add your phone number")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(BailColor.textPrimary)
+                    Text("So you can see plans you're invited to")
+                        .font(.system(size: 11))
+                        .foregroundColor(BailColor.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(BailColor.textMuted)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(BailColor.accentStart.opacity(0.12))
+            .overlay(
+                Rectangle()
+                    .fill(BailColor.accentStart)
+                    .frame(width: 3)
+                    .frame(maxHeight: .infinity),
+                alignment: .leading
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Empty states
