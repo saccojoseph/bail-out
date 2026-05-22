@@ -42,9 +42,9 @@ struct SplashView: View {
                 VStack(spacing: 12) {
                     Button(action: onSignIn) {
                         HStack(spacing: 10) {
-                            Image(systemName: "applelogo")
+                            Image(systemName: "icloud.fill")
                                 .font(.system(size: 17, weight: .semibold))
-                            Text("Sign in with Apple")
+                            Text("Get Started")
                                 .font(.system(size: 17, weight: .bold))
                         }
                         .foregroundColor(.white)
@@ -58,7 +58,7 @@ struct SplashView: View {
                         )
                     }
 
-                    Text("Uses your iCloud account — no password needed.")
+                    Text("Continues with your iCloud account — no password needed.")
                         .font(.system(size: 12))
                         .foregroundColor(BailColor.textMuted)
                         .multilineTextAlignment(.center)
