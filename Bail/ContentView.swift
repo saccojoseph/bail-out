@@ -566,6 +566,7 @@ struct ContentView: View {
     private func handleDeleteEvent(eventId: String) {
         // Optimistic local removal
         cloudKit.events.removeAll { $0.id == eventId }
+        CloudKitService.removeAccessedEventId(eventId)
 
         // If we were viewing this event, go back home
         if selectedEvent?.id == eventId {
@@ -665,6 +666,8 @@ struct ContentView: View {
                     await cloudKit.setup()
                 }
                 let event = try await cloudKit.fetchEvent(byId: eventId)
+                // Persist this event ID so it stays in the user's list across refreshes
+                CloudKitService.addAccessedEventId(eventId)
                 // Add to local events list if not already there
                 if !cloudKit.events.contains(where: { $0.id == eventId }) {
                     cloudKit.events.append(event)

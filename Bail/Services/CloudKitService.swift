@@ -293,6 +293,21 @@ final class CloudKitService: ObservableObject {
             }
         }
 
+        // 2b. Fetch events the user has accessed via deep link (persisted by ID)
+        // This ensures invited events stay visible even if phone matching fails.
+        let accessedIds = Self.accessedEventIds()
+        for eventId in accessedIds {
+            if allEventRecords.contains(where: { $0.recordID.recordName == eventId }) { continue }
+            do {
+                let recordID = CKRecord.ID(recordName: eventId)
+                let eventRecord = try await database.record(for: recordID)
+                allEventRecords.append(eventRecord)
+            } catch {
+                // Event may have been deleted — remove from accessed list
+                Self.removeAccessedEventId(eventId)
+            }
+        }
+
         // 3. Convert each record to an Event with guests and summary
         var loadedEvents: [Event] = []
         for record in allEventRecords {
@@ -715,6 +730,30 @@ final class CloudKitService: ObservableObject {
         }
 
         return options
+    }
+
+    // MARK: - Accessed Event Persistence
+
+    private static let accessedEventIdsKey = "accessedEventIds"
+
+    /// Returns the set of event IDs the user has accessed via deep link.
+    static func accessedEventIds() -> Set<String> {
+        let array = UserDefaults.standard.array(forKey: accessedEventIdsKey) as? [String] ?? []
+        return Set(array)
+    }
+
+    /// Adds an event ID to the persistent list of accessed events.
+    static func addAccessedEventId(_ id: String) {
+        var ids = accessedEventIds()
+        ids.insert(id)
+        UserDefaults.standard.set(Array(ids), forKey: accessedEventIdsKey)
+    }
+
+    /// Removes an event ID (e.g. when it has been deleted from CloudKit).
+    static func removeAccessedEventId(_ id: String) {
+        var ids = accessedEventIds()
+        ids.remove(id)
+        UserDefaults.standard.set(Array(ids), forKey: accessedEventIdsKey)
     }
 
     // MARK: - Private Helpers
