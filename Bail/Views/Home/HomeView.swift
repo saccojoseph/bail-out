@@ -12,9 +12,6 @@ struct HomeView: View {
 
     @State private var activeHomeTab: HomeTab = .upcoming
     @State private var activeBottomTab: BottomTab = .home
-    @AppStorage("currentUserPhone") private var storedPhone: String = ""
-    @State private var phoneInput: String = ""
-    @State private var showPhoneSaved = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -39,9 +36,6 @@ struct HomeView: View {
         VStack(spacing: 0) {
             header
             tabRow
-            if storedPhone.isEmpty {
-                phoneNumberBanner
-            }
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 12) {
@@ -83,40 +77,6 @@ struct HomeView: View {
         case .upcoming: return events.filter { $0.status != .cancelled }
         case .past:     return events.filter { $0.status == .cancelled }
         }
-    }
-
-    // MARK: - Phone number banner
-
-    private var phoneNumberBanner: some View {
-        Button(action: { activeBottomTab = .profile }) {
-            HStack(spacing: 10) {
-                Text("📱")
-                    .font(.system(size: 16))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Add your phone number")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(BailColor.textPrimary)
-                    Text("So you can see plans you're invited to")
-                        .font(.system(size: 11))
-                        .foregroundColor(BailColor.textSecondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(BailColor.textMuted)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(BailColor.accentStart.opacity(0.12))
-            .overlay(
-                Rectangle()
-                    .fill(BailColor.accentStart)
-                    .frame(width: 3)
-                    .frame(maxHeight: .infinity),
-                alignment: .leading
-            )
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Empty states
@@ -340,62 +300,6 @@ struct HomeView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: BailRadius.xl)
                             .stroke(BailColor.cardBorder, lineWidth: 1)
-                    )
-
-                    // Phone number card
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("YOUR PHONE NUMBER")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(BailColor.textSecondary)
-                            .tracking(1)
-                        Text("Required to see plans you've been invited to.")
-                            .font(.system(size: 13))
-                            .foregroundColor(BailColor.textMuted)
-                        HStack(spacing: 10) {
-                            TextField(storedPhone.isEmpty ? "+1 (555) 000-0000" : storedPhone, text: $phoneInput)
-                                .font(.system(size: 15))
-                                .foregroundColor(BailColor.textPrimary)
-                                .keyboardType(.phonePad)
-                            if showPhoneSaved {
-                                Text("Saved ✓")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(BailColor.teal)
-                            } else {
-                                Button("Save") {
-                                    let normalized = phoneInput.trimmingCharacters(in: .whitespaces)
-                                    guard !normalized.isEmpty else { return }
-                                    storedPhone = normalized
-                                    UserDefaults.standard.set(normalized, forKey: "currentUserPhone")
-                                    showPhoneSaved = true
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                        showPhoneSaved = false
-                                        phoneInput = ""
-                                    }
-                                }
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(BailColor.accentStart)
-                            }
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(BailColor.surface2)
-                        .cornerRadius(BailRadius.lg)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: BailRadius.lg)
-                                .stroke(storedPhone.isEmpty ? BailColor.accentStart.opacity(0.4) : BailColor.cardBorder, lineWidth: 1)
-                        )
-                        if !storedPhone.isEmpty {
-                            Text("Current: \(storedPhone)")
-                                .font(.system(size: 12))
-                                .foregroundColor(BailColor.textMuted)
-                        }
-                    }
-                    .padding(18)
-                    .background(BailColor.surface)
-                    .cornerRadius(BailRadius.xl)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: BailRadius.xl)
-                            .stroke(storedPhone.isEmpty ? BailColor.accentStart.opacity(0.3) : BailColor.cardBorder, lineWidth: storedPhone.isEmpty ? 1.5 : 1)
                     )
 
                     // Info card
