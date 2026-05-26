@@ -23,9 +23,9 @@ Group polls for plans
 
 ---
 
-## Promotional Text (170 char max — can change anytime without review)
+## Promotional Text (170 char max, can change anytime without review)
 ```
-A simple way for groups to check in on plans. Everyone votes anonymously to confirm attendance — so you know if it's still on without putting anyone on the spot.
+A simple way for groups to check in on plans. Everyone votes anonymously to confirm attendance, so you know if it's still on without putting anyone on the spot.
 ```
 
 ---
@@ -33,33 +33,33 @@ A simple way for groups to check in on plans. Everyone votes anonymously to conf
 ## Description (4000 char max)
 
 ```
-bail.out is a simple group polling app for plans. Friends create events, invite each other, and confirm attendance through anonymous votes — so the whole group knows whether something is still on, without anyone feeling pressured to commit publicly.
+bail.out is a simple group polling app for plans. Friends create events, invite each other, and confirm attendance through anonymous votes, so the whole group knows whether something is still on, without anyone feeling pressured to commit publicly.
 
-Use it for casual hangouts, group dinners, weekend trips, study sessions, team outings — anywhere a clear yes-or-no headcount helps.
+Use it for casual hangouts, group dinners, weekend trips, study sessions, team outings, anywhere a clear yes-or-no headcount helps.
 
-— HOW IT WORKS —
+HOW IT WORKS
 
 1. CREATE A PLAN
    Pick a date, place, and the friends you want there. Send invites by text.
 
 2. VOTE PRIVATELY
-   Each person privately confirms whether they can make it. Votes are aggregated into a simple count — individual responses are never shown to anyone.
+   Each person privately confirms whether they can make it. Votes are aggregated into a simple count. Individual responses are never shown to anyone.
 
 3. KNOW WHERE THINGS STAND
    You set the threshold for how many confirmations are needed. If interest falls below it, the group is notified with a neutral message that the plan didn't come together this time.
 
-— FEATURES —
+FEATURES
 
 • Anonymous group polling. Only the total count is ever shown, so people can be honest without worrying about hurting feelings.
 • Vote on the venue. Add multiple location options and let the group pick where to meet.
-• Plain event mode. Not every plan needs a poll — toggle voting off and use it as a clean group event tracker.
+• Plain event mode. Not every plan needs a poll. Toggle voting off and use it as a clean group event tracker.
 • Sign in with iCloud. No accounts, no passwords. Apple handles identity.
 • iMessage invites. Friends get a tap-to-open link. They can RSVP without downloading the app first.
 • Real-time updates. See the headcount update live as the group responds.
 
-— PRIVACY —
+PRIVACY
 
-bail.out is built around respecting privacy. Individual votes are aggregated into counts — the app never queries or displays who voted which way. No analytics SDKs, no tracking, no ads. Your contacts never leave your device.
+bail.out is built around respecting privacy. Individual votes are aggregated into counts. The app never queries or displays who voted which way. No analytics SDKs, no tracking, no ads. Your contacts never leave your device.
 
 A simple, respectful way for friends to plan together.
 ```
