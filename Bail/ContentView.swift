@@ -71,6 +71,7 @@ struct ContentView: View {
                     },
                     onRefresh: {
                         try? await cloudKit.fetchEvents()
+                        scheduleRemindersForVisibleEvents()
                     },
                     onSignOut: { handleSignOut() }
                 )
@@ -82,6 +83,7 @@ struct ContentView: View {
                         await fetchUserName()
                         isLoading = true
                         try? await cloudKit.fetchEvents()
+                        scheduleRemindersForVisibleEvents()
                         await cloudKit.subscribeToVoteChanges()
                         isLoading = false
                     }
@@ -217,6 +219,7 @@ struct ContentView: View {
             if cloudKit.iCloudAvailable {
                 do {
                     try await cloudKit.fetchEvents()
+                    scheduleRemindersForVisibleEvents()
                     await cloudKit.subscribeToVoteChanges()
                 } catch {
                     print("[ContentView] Fetch error: \(error.localizedDescription)")
@@ -226,6 +229,15 @@ struct ContentView: View {
 
             isLoading = false
             screen = hasSeenOnboarding ? .home : .onboarding
+        }
+    }
+
+    /// Schedules the 1-hour reminder for every upcoming event the user can see,
+    /// including ones they were invited to (not just ones they created).
+    /// Idempotent — UNUserNotificationCenter dedupes by identifier.
+    private func scheduleRemindersForVisibleEvents() {
+        for event in cloudKit.events where event.status != .cancelled && event.scheduledAt > Date() {
+            NotificationService.shared.scheduleReminder(for: event)
         }
     }
 
@@ -677,6 +689,10 @@ struct ContentView: View {
                 // Add to local events list if not already there
                 if !cloudKit.events.contains(where: { $0.id == eventId }) {
                     cloudKit.events.append(event)
+                }
+                // Schedule the 1-hour reminder for guests who joined via the link
+                if event.status != .cancelled && event.scheduledAt > Date() {
+                    NotificationService.shared.scheduleReminder(for: event)
                 }
                 selectedEvent = event
                 screen = .eventDetail
