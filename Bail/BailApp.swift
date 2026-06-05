@@ -38,10 +38,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
         let notification = CKNotification(fromRemoteNotificationDictionary: converted)
 
-        if notification?.subscriptionID == "vote-changes" {
+        let subID = notification?.subscriptionID
+        if subID == "vote-changes" || subID == "event-changes" {
             do {
-                // Refresh and detect any plan that just auto-cancelled, so the
-                // organizer and other guests get a local cancellation alert too.
+                // Refresh and detect any plan that just cancelled (auto via bail
+                // threshold OR a manual cancel by the organizer), so every guest
+                // and the organizer get a local cancellation alert.
                 let newlyCancelled = try await CloudKitService.shared.fetchEventsDetectingCancellations()
                 for event in newlyCancelled {
                     NotificationService.shared.cancelPending(for: event.id)

@@ -575,24 +575,32 @@ final class CloudKitService: ObservableObject {
 
     // MARK: - Subscribe to vote changes
 
-    /// Creates a CloudKit subscription so the app gets push notifications
-    /// when new votes are cast on events the user is part of.
+    /// Creates CloudKit subscriptions so the app gets push notifications when
+    /// votes are cast OR when an event changes (e.g. a plan is cancelled).
     func subscribeToVoteChanges() async {
-        let subscriptionID = "vote-changes"
+        await ensureSubscription(id: "vote-changes", recordType: RecordType.vote,
+                                 predicate: NSPredicate(value: true))
+        // Fires on any event change. We intentionally use a true predicate
+        // (no index dependency); the cancellation-detection filter ensures we
+        // only ever notify for events that genuinely just became cancelled.
+        await ensureSubscription(id: "event-changes", recordType: RecordType.event,
+                                 predicate: NSPredicate(value: true))
+    }
 
+    /// Creates a silent-push subscription for a record type if it doesn't exist.
+    private func ensureSubscription(id: String, recordType: String, predicate: NSPredicate) async {
         // Check if subscription already exists
         do {
-            _ = try await database.subscription(for: subscriptionID)
+            _ = try await database.subscription(for: id)
             return // Already subscribed
         } catch {
             // Doesn't exist yet, create it
         }
 
-        let predicate = NSPredicate(value: true) // All vote records
         let subscription = CKQuerySubscription(
-            recordType: RecordType.vote,
+            recordType: recordType,
             predicate: predicate,
-            subscriptionID: subscriptionID,
+            subscriptionID: id,
             options: [.firesOnRecordCreation, .firesOnRecordUpdate]
         )
 
@@ -603,7 +611,7 @@ final class CloudKitService: ObservableObject {
         do {
             try await database.save(subscription)
         } catch {
-            print("[CloudKit] Subscription error: \(error.localizedDescription)")
+            print("[CloudKit] Subscription error (\(id)): \(error.localizedDescription)")
         }
     }
 
