@@ -26,6 +26,7 @@ struct ContentView: View {
     @State private var errorMessage: String?
     @State private var errorTitle: String = "Something went wrong"
     @State private var userName: String = "there"
+    @State private var handlingDeepLinkId: String?
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
@@ -659,12 +660,17 @@ struct ContentView: View {
             return
         }
 
+        // Guard against onOpenURL firing twice for the same link on cold launch
+        if handlingDeepLinkId == eventId { return }
+        handlingDeepLinkId = eventId
+
         // Otherwise fetch directly by ID from CloudKit
         Task {
+            defer { handlingDeepLinkId = nil }
+            if cloudKit.userRecordID == nil {
+                await cloudKit.setup()
+            }
             do {
-                if cloudKit.userRecordID == nil {
-                    await cloudKit.setup()
-                }
                 let event = try await cloudKit.fetchEvent(byId: eventId)
                 // Persist this event ID so it stays in the user's list across refreshes
                 CloudKitService.addAccessedEventId(eventId)
@@ -675,8 +681,13 @@ struct ContentView: View {
                 selectedEvent = event
                 screen = .eventDetail
             } catch {
-                errorTitle = "Plan not found"
-                errorMessage = "That plan may have been deleted or you don't have access to it."
+                // Only surface the error if the event truly isn't available —
+                // a concurrent fetch may have already loaded it (avoids
+                // spurious "Plan not found" on cold launch).
+                if !cloudKit.events.contains(where: { $0.id == eventId }) {
+                    errorTitle = "Plan not found"
+                    errorMessage = "That plan may have been deleted or you don't have access to it."
+                }
             }
         }
     }
