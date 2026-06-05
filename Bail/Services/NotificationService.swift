@@ -51,9 +51,28 @@ final class NotificationService {
         UNUserNotificationCenter.current().add(request)
     }
 
+    // Fires immediately when a location vote resolves and the venue is locked in
+    func scheduleLocationResolved(for event: Event) {
+        let content = UNMutableNotificationContent()
+        content.title = event.title
+        if let loc = event.location, !loc.isEmpty {
+            content.body = "The spot is locked in: \(loc)"
+        } else {
+            content.body = "The location vote is in. The spot is locked in."
+        }
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "location-resolved-\(event.id)",
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        )
+        UNUserNotificationCenter.current().add(request)
+    }
+
     func cancelPending(for eventId: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(
-            withIdentifiers: ["reminder-\(eventId)", "cancelled-\(eventId)"]
+            withIdentifiers: ["reminder-\(eventId)", "cancelled-\(eventId)", "location-resolved-\(eventId)"]
         )
     }
 }

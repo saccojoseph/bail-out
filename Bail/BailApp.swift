@@ -41,13 +41,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         let subID = notification?.subscriptionID
         if subID == "vote-changes" || subID == "event-changes" {
             do {
-                // Refresh and detect any plan that just cancelled (auto via bail
-                // threshold OR a manual cancel by the organizer), so every guest
-                // and the organizer get a local cancellation alert.
-                let newlyCancelled = try await CloudKitService.shared.fetchEventsDetectingCancellations()
-                for event in newlyCancelled {
+                // Refresh and detect plans that just cancelled (auto via bail
+                // threshold OR manual cancel) and location votes that just
+                // resolved, so every guest gets the right local notification.
+                let changes = try await CloudKitService.shared.fetchEventsDetectingChanges()
+                for event in changes.newlyCancelled {
                     NotificationService.shared.cancelPending(for: event.id)
                     NotificationService.shared.scheduleCancellation(for: event)
+                }
+                for event in changes.newlyResolvedLocation {
+                    NotificationService.shared.scheduleLocationResolved(for: event)
                 }
                 return .newData
             } catch {

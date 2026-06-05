@@ -557,20 +557,36 @@ final class CloudKitService: ObservableObject {
         }
     }
 
-    // MARK: - Fetch + detect cancellations
+    // MARK: - Fetch + detect changes
+
+    /// Newly-changed events detected during a background refresh.
+    struct EventChanges {
+        var newlyCancelled: [Event] = []
+        var newlyResolvedLocation: [Event] = []
+    }
 
     /// Fetches events and returns any that newly transitioned to `.cancelled`
-    /// since the last known local state. Used by the silent-push handler so
-    /// every device (including the organizer's) can fire a local cancellation
-    /// notification when a plan auto-cancels.
-    func fetchEventsDetectingCancellations() async throws -> [Event] {
+    /// or whose location vote just `.resolved`, compared to the last known
+    /// local state. Used by the silent-push handler so every device can fire
+    /// the appropriate local notification.
+    func fetchEventsDetectingChanges() async throws -> EventChanges {
         let previouslyCancelled = Set(
             events.filter { $0.status == .cancelled }.map { $0.id }
         )
+        let previouslyResolved = Set(
+            events.filter { $0.locationVotingStatus == .resolved }.map { $0.id }
+        )
         try await fetchEvents()
-        return events.filter {
+        var changes = EventChanges()
+        changes.newlyCancelled = events.filter {
             $0.status == .cancelled && !previouslyCancelled.contains($0.id)
         }
+        changes.newlyResolvedLocation = events.filter {
+            $0.locationVotingStatus == .resolved
+                && !previouslyResolved.contains($0.id)
+                && $0.status != .cancelled
+        }
+        return changes
     }
 
     // MARK: - Subscribe to vote changes
