@@ -40,7 +40,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
         if notification?.subscriptionID == "vote-changes" {
             do {
-                try await CloudKitService.shared.fetchEvents()
+                // Refresh and detect any plan that just auto-cancelled, so the
+                // organizer and other guests get a local cancellation alert too.
+                let newlyCancelled = try await CloudKitService.shared.fetchEventsDetectingCancellations()
+                for event in newlyCancelled {
+                    NotificationService.shared.cancelPending(for: event.id)
+                    NotificationService.shared.scheduleCancellation(for: event)
+                }
                 return .newData
             } catch {
                 return .failed

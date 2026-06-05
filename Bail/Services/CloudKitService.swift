@@ -557,6 +557,22 @@ final class CloudKitService: ObservableObject {
         }
     }
 
+    // MARK: - Fetch + detect cancellations
+
+    /// Fetches events and returns any that newly transitioned to `.cancelled`
+    /// since the last known local state. Used by the silent-push handler so
+    /// every device (including the organizer's) can fire a local cancellation
+    /// notification when a plan auto-cancels.
+    func fetchEventsDetectingCancellations() async throws -> [Event] {
+        let previouslyCancelled = Set(
+            events.filter { $0.status == .cancelled }.map { $0.id }
+        )
+        try await fetchEvents()
+        return events.filter {
+            $0.status == .cancelled && !previouslyCancelled.contains($0.id)
+        }
+    }
+
     // MARK: - Subscribe to vote changes
 
     /// Creates a CloudKit subscription so the app gets push notifications
