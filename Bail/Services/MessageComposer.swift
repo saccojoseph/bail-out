@@ -9,6 +9,19 @@ struct PendingMessage: Identifiable {
     let body: String
 }
 
+/// Builds invite links and message bodies. Uses the universal link so the tap
+/// works for everyone: opens the app when installed, otherwise lands on a
+/// page with the App Store download button.
+enum InviteLink {
+    static func url(eventId: String) -> String {
+        "https://saccojoseph.github.io/e/?id=\(eventId)"
+    }
+
+    static func body(title: String, dateString: String, eventId: String) -> String {
+        "Hey! You're invited to \"\(title)\" on \(dateString). Tap to RSVP in bail.out: \(url(eventId: eventId)) 👀"
+    }
+}
+
 #if os(iOS)
 import MessageUI
 import SwiftUI

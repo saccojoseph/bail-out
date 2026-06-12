@@ -493,7 +493,11 @@ struct EventDetailView: View {
 
 #if os(iOS)
         if MessageComposer.canSend && !phones.isEmpty {
-            let body = "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Tap to open in bail.out: bail://event/\(event.id) 👀"
+            let body = InviteLink.body(
+                title: event.title,
+                dateString: event.scheduledAt.inviteString,
+                eventId: event.id
+            )
             // Small delay so the add-guest sheet finishes dismissing before iMessage slides up
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 pendingMessage = PendingMessage(recipients: phones, body: body)
@@ -503,7 +507,11 @@ struct EventDetailView: View {
     }
 
     private var inviteText: String {
-        "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Tap to open in bail.out: bail://event/\(event.id) 👀\n\nGet the app: https://apps.apple.com/app/bail-out/id6770131851"
+        InviteLink.body(
+            title: event.title,
+            dateString: event.scheduledAt.inviteString,
+            eventId: event.id
+        )
     }
 
     private func dismissAddSheet() {

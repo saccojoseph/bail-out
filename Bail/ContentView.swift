@@ -660,11 +660,7 @@ struct ContentView: View {
     // MARK: - Deep Links (bail://event/<id>)
 
     private func handleDeepLink(_ url: URL) {
-        guard url.scheme == "bail",
-              url.host == "event",
-              let eventId = url.pathComponents.dropFirst().first else {
-            return
-        }
+        guard let eventId = Self.eventId(from: url) else { return }
 
         // If the event is already loaded locally, navigate to it
         if let event = cloudKit.events.first(where: { $0.id == eventId }) {
@@ -707,6 +703,24 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    /// Extracts an event ID from either link form:
+    /// - Custom scheme: bail://event/<id>
+    /// - Universal link: https://saccojoseph.github.io/e/?id=<id>
+    static func eventId(from url: URL) -> String? {
+        if url.scheme == "bail", url.host == "event" {
+            return url.pathComponents.dropFirst().first
+        }
+        if url.scheme == "https",
+           url.host == "saccojoseph.github.io",
+           url.path.hasPrefix("/e"),
+           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let id = components.queryItems?.first(where: { $0.name == "id" })?.value,
+           !id.isEmpty {
+            return id
+        }
+        return nil
     }
 }
 

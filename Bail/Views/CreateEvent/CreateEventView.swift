@@ -652,7 +652,11 @@ struct CreateEventView: View {
                 let recipients = contactsService.contacts
                     .filter { selectedContactIds.contains($0.id) }
                     .map { $0.phoneNumber }
-                let body = "Hey! You're invited to \"\(event.title)\" on \(event.scheduledAt.inviteString). Tap to open in bail.out: bail://event/\(event.id) 👀"
+                let body = InviteLink.body(
+                    title: event.title,
+                    dateString: event.scheduledAt.inviteString,
+                    eventId: event.id
+                )
                 pendingMessage = PendingMessage(recipients: recipients, body: body)
             } else {
                 onComplete(event)
