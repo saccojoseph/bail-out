@@ -29,6 +29,14 @@ struct ContentView: View {
     @State private var handlingDeepLinkId: String?
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    @AppStorage("userDisplayName") private var storedDisplayName = ""
+
+    /// Name shown in the UI and attached to visible (location) votes.
+    /// Prefers the name the user typed during onboarding; falls back to the
+    /// device-name heuristic for users who skipped it.
+    private var effectiveUserName: String {
+        storedDisplayName.isEmpty ? userName : storedDisplayName
+    }
 
     var body: some View {
         ZStack {
@@ -59,7 +67,7 @@ struct ContentView: View {
             case .home:
                 HomeView(
                     events: cloudKit.events,
-                    userName: userName,
+                    userName: effectiveUserName,
                     currentUserId: cloudKit.userRecordID?.recordName ?? "",
                     isLoading: isLoading,
                     onCreateEvent: { screen = .createEvent },
@@ -197,9 +205,12 @@ struct ContentView: View {
     /// Derives a first name from the device name (e.g. "Joseph's iPhone" → "Joseph").
     private func fetchUserName() async {
         let deviceName = await UIDevice.current.name
-        // Device names are typically "Joseph's iPhone" or "Joseph's iPhone 16 Pro"
+        // Device names are typically "Joseph's iPhone" or "Joseph's iPhone 16 Pro".
+        // Generic names like "iPhone" would read as "Hey iPhone 👋" — fall back
+        // to "there" instead.
         if let firstName = deviceName.components(separatedBy: "'").first,
-           !firstName.isEmpty {
+           !firstName.isEmpty,
+           !["iphone", "ipad", "ipod"].contains(where: { firstName.lowercased().hasPrefix($0) }) {
             userName = firstName
         }
     }
@@ -514,7 +525,7 @@ struct ContentView: View {
             if let optIdx = updatedOptions.firstIndex(where: { $0.id == locationOptionId }) {
                 updatedOptions[optIdx].voteCount += 1
                 updatedOptions[optIdx].voters.append(
-                    LocationVoter(id: UUID().uuidString, guestId: myUserId, displayName: userName)
+                    LocationVoter(id: UUID().uuidString, guestId: myUserId, displayName: effectiveUserName)
                 )
             }
 
@@ -554,7 +565,7 @@ struct ContentView: View {
                 try await cloudKit.castLocationVote(
                     eventId: eventId,
                     locationOptionId: locationOptionId,
-                    voterDisplayName: userName
+                    voterDisplayName: effectiveUserName
                 )
                 // Re-fetch to get accurate state from server
                 try? await cloudKit.fetchEvents()

@@ -14,6 +14,9 @@ struct HomeView: View {
 
     @State private var activeHomeTab: HomeTab = .upcoming
     @State private var activeBottomTab: BottomTab = .home
+    @State private var showEditName = false
+    @State private var nameInput = ""
+    @AppStorage("userDisplayName") private var userDisplayName = ""
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -282,11 +285,32 @@ struct HomeView: View {
                                 .font(.system(size: 32, weight: .bold))
                                 .foregroundColor(.white)
                         }
-                        Text(userName)
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(BailColor.textPrimary)
+                        Button(action: {
+                            nameInput = userName
+                            showEditName = true
+                        }) {
+                            HStack(spacing: 8) {
+                                Text(userName)
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundColor(BailColor.textPrimary)
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(BailColor.textMuted)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding(.top, BailSpacing.md)
+                    .alert("Your name", isPresented: $showEditName) {
+                        TextField("First name", text: $nameInput)
+                        Button("Save") {
+                            let trimmed = nameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !trimmed.isEmpty { userDisplayName = trimmed }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("Shown on guest lists and location votes.")
+                    }
 
                     // Stats row
                     HStack(spacing: 0) {
