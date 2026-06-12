@@ -68,7 +68,7 @@ Bail/
 ## Non-Negotiable Rules
 1. Vote choices are NEVER returned by any API call — ever. Only aggregate bail_count is exposed.
 2. The creator has NO special visibility into votes. Same view as everyone else.
-3. Votes are write-once. No editing, no deleting.
+3. Votes can be changed until the event starts or cancels (castVote upserts). Individual votes are never shown, before or after a change.
 4. Auto-cancel message is always the same neutral template — never hints at how many bailed.
 5. Use SwiftUI previews for every View file.
 6. No force unwraps (!). Use guard let / if let.
@@ -149,7 +149,10 @@ Bail/
 [x] iMessage triggered after adding guests to existing events
 [x] App Store submission package (metadata, GitHub Pages site, privacy manifest, screenshots)
 [x] Renamed from "bail." to "bail.out" (App Store name, UI, emails)
-[x] App Store submitted — "Waiting for Review" (submitted May 17, 2026, build 1.0 (1))
+[x] App Store LIVE since May 19, 2026 — https://apps.apple.com/app/bail-out/id6770131851 (1.0.5 published; 1.0.6 has critical invite-link fix: createEvent uses local event ID as CKRecord name)
+[x] App Store copy reframed for Guideline 1.1 — subtitle "Group polls for plans"; never use "flake/drama/bail on plans" in metadata
+[x] Splash button is "Get Started" (Apple flagged fake "Sign in with Apple")
+[x] Notifications: dual CK subscriptions (vote + event changes), cancellation + location-resolved alerts on all devices, reminders for invited guests
 [x] Age rating: 4+ (User-Generated Content declared)
 [x] App Privacy published (Name, Phone Number, Other User Content, User ID — all App Functionality, not linked to identity, not tracked)
 [x] Export compliance: None of the algorithms (OS-level encryption only via CloudKit/HTTPS)
