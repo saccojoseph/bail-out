@@ -94,6 +94,7 @@ struct ContentView: View {
                         await cloudKit.setup()
                         await fetchUserName()
                         isLoading = true
+                        await cloudKit.retryPendingCreates()
                         try? await cloudKit.fetchEvents()
                         scheduleRemindersForVisibleEvents()
                         await cloudKit.subscribeToVoteChanges()
@@ -239,13 +240,14 @@ struct ContentView: View {
             await fetchUserName()
 
             if cloudKit.iCloudAvailable {
+                await cloudKit.retryPendingCreates()
                 do {
                     try await cloudKit.fetchEvents()
                     scheduleRemindersForVisibleEvents()
                     await cloudKit.subscribeToVoteChanges()
                 } catch {
                     print("[ContentView] Fetch error: \(error.localizedDescription)")
-                    // Non-fatal — user just sees empty list
+                    // Non-fatal — cached events remain visible
                 }
             }
 
@@ -313,11 +315,13 @@ struct ContentView: View {
                 if let ckError = error as? CKError {
                     print("[CloudKit] CKError code: \(ckError.code.rawValue) — \(ckError.localizedDescription)")
                 }
+                // Queue for retry on next launch so the plan isn't lost
+                CloudKitService.addPendingCreate(localEvent)
                 errorTitle = "Couldn't save plan"
                 if case CloudKitError.notAuthenticated = error {
-                    errorMessage = "iCloud is not available. Make sure you're signed into iCloud in Settings and try again."
+                    errorMessage = "iCloud is not available. Make sure you're signed into iCloud in Settings. Your plan is saved on this device and will sync automatically."
                 } else {
-                    errorMessage = "Your plan was created locally but couldn't sync to iCloud. Check your connection and try again."
+                    errorMessage = "Your plan is saved on this device and will sync to iCloud automatically when you're back online."
                 }
             }
         }
@@ -395,8 +399,10 @@ struct ContentView: View {
         // Clear all local state
         cloudKit.events = []
         cloudKit.userVotes = [:]
+        cloudKit.clearCache()
         selectedEvent = nil
         userName = "there"
+        storedDisplayName = ""
         hasCompletedOnboarding = false
         hasSeenOnboarding = false
         screen = .splash
@@ -617,6 +623,7 @@ struct ContentView: View {
         // Optimistic local removal
         cloudKit.events.removeAll { $0.id == eventId }
         CloudKitService.removeAccessedEventId(eventId)
+        CloudKitService.removePendingCreate(id: eventId)
 
         // If we were viewing this event, go back home
         if selectedEvent?.id == eventId {

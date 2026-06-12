@@ -23,8 +23,12 @@ final class CloudKitService: ObservableObject {
 
     // MARK: - Published state
 
-    @Published var events: [Event] = []
-    @Published var userVotes: [String: VoteChoice] = [:]   // eventId → user's vote
+    @Published var events: [Event] = [] {
+        didSet { saveCache() }
+    }
+    @Published var userVotes: [String: VoteChoice] = [:] {  // eventId → user's vote
+        didSet { saveCache() }
+    }
     @Published var currentUserPhone: String = ""            // normalized phone for matching
     @Published var iCloudAvailable = false
     @Published var userRecordID: CKRecord.ID?
@@ -34,7 +38,107 @@ final class CloudKitService: ObservableObject {
     private let container = CKContainer(identifier: "iCloud.com.sacco.bail-app")
     private var database: CKDatabase { container.publicCloudDatabase }
 
-    private init() {}
+    private init() {
+        loadCache()
+    }
+
+    // MARK: - Local cache (instant launch + offline)
+
+    private struct CachePayload: Codable {
+        var events: [Event]
+        var userVotes: [String: VoteChoice]
+    }
+
+    private static var cacheURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("events-cache.json")
+    }
+
+    /// Loads the last known events so the UI is populated immediately on
+    /// launch and works offline. CloudKit fetches overwrite this when they land.
+    private func loadCache() {
+        guard let data = try? Data(contentsOf: Self.cacheURL),
+              let payload = try? JSONDecoder().decode(CachePayload.self, from: data) else { return }
+        events = payload.events
+        userVotes = payload.userVotes
+    }
+
+    private func saveCache() {
+        let payload = CachePayload(events: events, userVotes: userVotes)
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? data.write(to: Self.cacheURL, options: .atomic)
+    }
+
+    /// Wipes the on-disk cache (sign out).
+    func clearCache() {
+        try? FileManager.default.removeItem(at: Self.cacheURL)
+    }
+
+    // MARK: - Pending creates (retry queue)
+
+    private static var pendingCreatesURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("pending-creates.json")
+    }
+
+    static func pendingCreates() -> [Event] {
+        guard let data = try? Data(contentsOf: pendingCreatesURL),
+              let list = try? JSONDecoder().decode([Event].self, from: data) else { return [] }
+        return list
+    }
+
+    static func addPendingCreate(_ event: Event) {
+        var list = pendingCreates().filter { $0.id != event.id }
+        list.append(event)
+        if let data = try? JSONEncoder().encode(list) {
+            try? data.write(to: pendingCreatesURL, options: .atomic)
+        }
+    }
+
+    static func removePendingCreate(id: String) {
+        let list = pendingCreates().filter { $0.id != id }
+        if let data = try? JSONEncoder().encode(list) {
+            try? data.write(to: pendingCreatesURL, options: .atomic)
+        }
+    }
+
+    /// Retries events that were created locally but never reached CloudKit.
+    /// Makes the "it'll sync later" promise actually true.
+    func retryPendingCreates() async {
+        for event in Self.pendingCreates() {
+            do {
+                let cloudEvent = try await createEvent(
+                    eventId: event.id,
+                    title: event.title,
+                    scheduledAt: event.scheduledAt,
+                    location: event.location,
+                    threshold: event.threshold,
+                    isAnonymous: event.isAnonymous,
+                    showBailOMeter: event.showBailOMeter,
+                    showVotingStatus: event.showVotingStatus,
+                    isBailEvent: event.isBailEvent,
+                    locationVotingStatus: event.locationVotingStatus,
+                    locationOptions: event.locationOptions.map { ($0.name, $0.address) },
+                    guests: event.guests.map {
+                        ($0.displayName, $0.phoneNumber ?? "", $0.avatarColor)
+                    }
+                )
+                Self.removePendingCreate(id: event.id)
+                if let index = events.firstIndex(where: { $0.id == event.id }) {
+                    events[index] = cloudEvent
+                } else {
+                    events.append(cloudEvent)
+                }
+            } catch {
+                // Record already exists from a partially-failed earlier attempt —
+                // the create effectively succeeded, stop retrying it.
+                if let ckError = error as? CKError, ckError.code == .serverRecordChanged {
+                    Self.removePendingCreate(id: event.id)
+                }
+                // Otherwise keep it queued for next launch
+            }
+        }
+    }
 
     // MARK: - Setup
 
