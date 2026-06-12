@@ -3,10 +3,12 @@ import SwiftUI
 struct HomeView: View {
     var events: [Event] = []
     var userName: String = "there"
+    var currentUserId: String = ""
     var isLoading: Bool = false
     var onCreateEvent: () -> Void = {}
     var onSelectEvent: (Event) -> Void = { _ in }
     var onDeleteEvent: (String) -> Void = { _ in }
+    var onLeaveEvent: (String) -> Void = { _ in }
     var onRefresh: () async -> Void = {}
     var onSignOut: () -> Void = {}
 
@@ -51,10 +53,18 @@ struct HomeView: View {
                             EventCard(event: event)
                                 .onTapGesture { onSelectEvent(event) }
                                 .contextMenu {
-                                    Button(role: .destructive) {
-                                        onDeleteEvent(event.id)
-                                    } label: {
-                                        Label("Delete Plan", systemImage: "trash")
+                                    if event.creatorId == currentUserId {
+                                        Button(role: .destructive) {
+                                            onDeleteEvent(event.id)
+                                        } label: {
+                                            Label("Delete Plan", systemImage: "trash")
+                                        }
+                                    } else {
+                                        Button(role: .destructive) {
+                                            onLeaveEvent(event.id)
+                                        } label: {
+                                            Label("Leave Plan", systemImage: "rectangle.portrait.and.arrow.right")
+                                        }
                                     }
                                 }
                         }
@@ -73,9 +83,14 @@ struct HomeView: View {
     }
 
     private var filteredEvents: [Event] {
+        // An event counts as "over" 3 hours after its start time, so plans
+        // stay visible while they're happening.
+        let cutoff = Date().addingTimeInterval(-3 * 3600)
         switch activeHomeTab {
-        case .upcoming: return events.filter { $0.status != .cancelled }
-        case .past:     return events.filter { $0.status == .cancelled }
+        case .upcoming:
+            return events.filter { $0.status != .cancelled && $0.scheduledAt > cutoff }
+        case .past:
+            return events.filter { $0.status == .cancelled || $0.scheduledAt <= cutoff }
         }
     }
 
@@ -99,7 +114,7 @@ struct HomeView: View {
 
             Text(activeHomeTab == .upcoming
                  ? "Create your first plan and invite\nyour friends to vote on it."
-                 : "Plans that get enough bails\nwill show up here.")
+                 : "Plans that already happened or\ngot cancelled show up here.")
                 .font(.system(size: 14))
                 .foregroundColor(BailColor.textSecondary)
                 .multilineTextAlignment(.center)

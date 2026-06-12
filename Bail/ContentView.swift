@@ -60,6 +60,7 @@ struct ContentView: View {
                 HomeView(
                     events: cloudKit.events,
                     userName: userName,
+                    currentUserId: cloudKit.userRecordID?.recordName ?? "",
                     isLoading: isLoading,
                     onCreateEvent: { screen = .createEvent },
                     onSelectEvent: { event in
@@ -68,6 +69,9 @@ struct ContentView: View {
                     },
                     onDeleteEvent: { eventId in
                         handleDeleteEvent(eventId: eventId)
+                    },
+                    onLeaveEvent: { eventId in
+                        handleLeaveEvent(eventId: eventId)
                     },
                     onRefresh: {
                         try? await cloudKit.fetchEvents()
@@ -577,6 +581,19 @@ struct ContentView: View {
 
     // MARK: - Delete Event
 
+    /// Guest removes a plan from their own list. Purely local — the event
+    /// itself is untouched; we just stop fetching and showing it.
+    private func handleLeaveEvent(eventId: String) {
+        CloudKitService.removeAccessedEventId(eventId)
+        CloudKitService.hideEvent(eventId)
+        cloudKit.events.removeAll { $0.id == eventId }
+        NotificationService.shared.cancelPending(for: eventId)
+        if selectedEvent?.id == eventId {
+            selectedEvent = nil
+            screen = .home
+        }
+    }
+
     private func handleDeleteEvent(eventId: String) {
         // Optimistic local removal
         cloudKit.events.removeAll { $0.id == eventId }
@@ -681,8 +698,10 @@ struct ContentView: View {
             }
             do {
                 let event = try await cloudKit.fetchEvent(byId: eventId)
-                // Persist this event ID so it stays in the user's list across refreshes
+                // Persist this event ID so it stays in the user's list across refreshes.
+                // Tapping an invite link also re-joins a plan the user previously left.
                 CloudKitService.addAccessedEventId(eventId)
+                CloudKitService.unhideEvent(eventId)
                 // Add to local events list if not already there
                 if !cloudKit.events.contains(where: { $0.id == eventId }) {
                     cloudKit.events.append(event)

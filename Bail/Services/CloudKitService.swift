@@ -350,7 +350,10 @@ final class CloudKitService: ObservableObject {
             }
         }
 
-        events = loadedEvents.sorted { $0.scheduledAt < $1.scheduledAt }
+        let hidden = Self.hiddenEventIds()
+        events = loadedEvents
+            .filter { !hidden.contains($0.id) }
+            .sorted { $0.scheduledAt < $1.scheduledAt }
     }
 
     // MARK: - Refresh Summary
@@ -808,6 +811,28 @@ final class CloudKitService: ObservableObject {
         var ids = accessedEventIds()
         ids.remove(id)
         UserDefaults.standard.set(Array(ids), forKey: accessedEventIdsKey)
+    }
+
+    // MARK: - Hidden (left) events
+
+    private static let hiddenEventIdsKey = "hiddenEventIds"
+
+    /// Events the user has explicitly left — filtered out of every fetch.
+    static func hiddenEventIds() -> Set<String> {
+        let array = UserDefaults.standard.array(forKey: hiddenEventIdsKey) as? [String] ?? []
+        return Set(array)
+    }
+
+    static func hideEvent(_ id: String) {
+        var ids = hiddenEventIds()
+        ids.insert(id)
+        UserDefaults.standard.set(Array(ids), forKey: hiddenEventIdsKey)
+    }
+
+    static func unhideEvent(_ id: String) {
+        var ids = hiddenEventIds()
+        ids.remove(id)
+        UserDefaults.standard.set(Array(ids), forKey: hiddenEventIdsKey)
     }
 
     // MARK: - Private Helpers
