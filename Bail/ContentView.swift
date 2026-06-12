@@ -27,6 +27,7 @@ struct ContentView: View {
     @State private var errorTitle: String = "Something went wrong"
     @State private var userName: String = "there"
     @State private var handlingDeepLinkId: String?
+    @State private var pendingMessage: PendingMessage?
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     @AppStorage("userDisplayName") private var storedDisplayName = ""
@@ -171,7 +172,8 @@ struct ContentView: View {
                 if let event = selectedEvent {
                     CancelledView(
                         event: event,
-                        onDone: { screen = .home }
+                        onDone: { screen = .home },
+                        onTextEveryone: textEveryoneAction(for: event)
                     )
                     .transition(.opacity)
                 }
@@ -208,6 +210,12 @@ struct ContentView: View {
         .onOpenURL { url in
             handleDeepLink(url)
         }
+#if os(iOS)
+        .sheet(item: $pendingMessage) { msg in
+            MessageComposer(recipients: msg.recipients, body: msg.body) {}
+                .ignoresSafeArea()
+        }
+#endif
     }
 
     /// Derives a first name from the device name (e.g. "Joseph's iPhone" → "Joseph").
@@ -605,6 +613,28 @@ struct ContentView: View {
     }
 
     // MARK: - Delete Event
+
+    /// One-tap "text the group the neutral cancellation message" action,
+    /// offered to the creator when guests have phone numbers. SMS reaches
+    /// guests who never installed the app — push alone can't.
+    private func textEveryoneAction(for event: Event) -> (() -> Void)? {
+#if os(iOS)
+        guard cloudKit.userRecordID?.recordName == event.creatorId else { return nil }
+        let phones = event.guests.compactMap { guest -> String? in
+            guard let phone = guest.phoneNumber, !phone.isEmpty else { return nil }
+            return phone
+        }
+        guard MessageComposer.canSend, !phones.isEmpty else { return nil }
+        return {
+            pendingMessage = PendingMessage(
+                recipients: phones,
+                body: "Hey, plans fell through for \(event.scheduledAt.dayString). Maybe next time! 🤷"
+            )
+        }
+#else
+        return nil
+#endif
+    }
 
     /// Guest removes a plan from their own list. Purely local — the event
     /// itself is untouched; we just stop fetching and showing it.
