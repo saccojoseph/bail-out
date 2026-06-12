@@ -140,7 +140,14 @@ struct ContentView: View {
                         existingVote: cloudKit.userVotes[event.id],
                         onBack: { screen = .eventDetail },
                         onVoteCast: { choice in
+                            // Commits the vote; navigation happens in onDone so
+                            // the user sees the confirmation screen first.
                             handleVote(eventId: event.id, choice: choice)
+                        },
+                        onDone: {
+                            let nowCancelled = cloudKit.events
+                                .first(where: { $0.id == event.id })?.status == .cancelled
+                            screen = nowCancelled ? .cancelled : .home
                         }
                     )
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -364,10 +371,9 @@ struct ContentView: View {
             if newSummary.isCancelled {
                 NotificationService.shared.cancelPending(for: eventId)
                 NotificationService.shared.scheduleCancellation(for: updated)
-                screen = .cancelled
-            } else {
-                screen = .home
             }
+            // Navigation is handled by VoteView's onDone so the voter sees
+            // the confirmation screen before returning.
         }
 
         // Sync to CloudKit in background

@@ -297,7 +297,7 @@ struct CreateEventView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(BailColor.textSecondary)
                 .tracking(1)
-            DatePicker("", selection: $scheduledAt, displayedComponents: [.date, .hourAndMinute])
+            DatePicker("", selection: $scheduledAt, in: Date()..., displayedComponents: [.date, .hourAndMinute])
                 .datePickerStyle(.compact)
                 .labelsHidden()
                 .colorScheme(.dark)
@@ -628,6 +628,14 @@ struct CreateEventView: View {
 
     // MARK: - Continue / submit
 
+    private var canAdvance: Bool {
+        // Step 1 requires a title so plans never show up as "Untitled Plan"
+        if currentStep == 1 {
+            return !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return true
+    }
+
     private var continueButton: some View {
         Button(action: advance) {
             Text(currentStep < 3 ? "Continue →" : "Send Invites")
@@ -635,10 +643,18 @@ struct CreateEventView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 18)
-                .background(BailGradient.accent)
+                .background(
+                    canAdvance
+                        ? AnyShapeStyle(BailGradient.accent)
+                        : AnyShapeStyle(BailColor.surface2)
+                )
                 .cornerRadius(BailRadius.lg)
-                .shadow(color: BailColor.accentStart.opacity(0.3), radius: 15, x: 0, y: 8)
+                .shadow(
+                    color: canAdvance ? BailColor.accentStart.opacity(0.3) : .clear,
+                    radius: 15, x: 0, y: 8
+                )
         }
+        .disabled(!canAdvance)
     }
 
     private func advance() {

@@ -7,6 +7,9 @@ struct CancelledView: View {
     var body: some View {
         ZStack {
             BailColor.surfaceDeep.ignoresSafeArea()
+                .onAppear {
+                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                }
 
             VStack(spacing: 20) {
                 Spacer()

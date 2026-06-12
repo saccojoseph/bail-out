@@ -5,6 +5,7 @@ struct VoteView: View {
     var existingVote: VoteChoice? = nil
     var onBack: () -> Void = {}
     var onVoteCast: (VoteChoice) -> Void = { _ in }
+    var onDone: () -> Void = {}
 
     @State private var selected: VoteChoice? = nil
     @State private var showConfirmation = false
@@ -87,10 +88,25 @@ struct VoteView: View {
                 )
             }
 
-            Text("🔒 Encrypted · Anonymous · Nobody sees this")
+            if let choice = selected, choice != existingVote {
+                Button(action: { lockIn(choice) }) {
+                    Text(existingVote == nil ? "Lock In My Vote" : "Confirm New Vote")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(BailGradient.accent)
+                        .cornerRadius(BailRadius.lg)
+                        .shadow(color: BailColor.accentStart.opacity(0.3), radius: 15, x: 0, y: 8)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            Text("🔒 Anonymous · Nobody sees this")
                 .font(.system(size: 11))
                 .foregroundColor(BailColor.textMuted)
         }
+        .animation(.easeInOut(duration: 0.2), value: selected)
     }
 
     private func voteCard(choice: VoteChoice, icon: String, label: String, subtitle: String) -> some View {
@@ -101,7 +117,7 @@ struct VoteView: View {
                 : AnyView(BailGradient.accent))
             : AnyView(BailColor.surface)
 
-        return Button(action: { castVote(choice) }) {
+        return Button(action: { select(choice) }) {
             VStack(spacing: 4) {
                 Text("\(icon) \(label)")
                     .font(.system(size: 18, weight: .bold))
@@ -175,7 +191,7 @@ struct VoteView: View {
                     .stroke(BailColor.border, lineWidth: 1)
             )
 
-            Button(action: { onVoteCast(selected ?? .in) }) {
+            Button(action: onDone) {
                 Text("Back to Plans")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(BailColor.textPrimary)
@@ -205,14 +221,22 @@ struct VoteView: View {
         return max(0, count)
     }
 
-    // MARK: - Action
+    // MARK: - Actions
 
-    private func castVote(_ choice: VoteChoice) {
+    /// Tapping a card only selects it. The vote is committed by the explicit
+    /// confirm button, so an accidental tap never casts a vote.
+    private func select(_ choice: VoteChoice) {
         selected = choice
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showConfirmation = true
-            }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// Commits the vote immediately, then shows the confirmation screen.
+    /// Backing out after this point can no longer drop the vote.
+    private func lockIn(_ choice: VoteChoice) {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        onVoteCast(choice)
+        withAnimation(.easeInOut(duration: 0.3)) {
+            showConfirmation = true
         }
     }
 }
