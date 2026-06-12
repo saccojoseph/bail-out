@@ -121,7 +121,7 @@ struct VoteView: View {
             VStack(spacing: 4) {
                 Text("\(icon) \(label)")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(isSelected ? .white : BailColor.textPrimary)
                 Text(subtitle)
                     .font(.system(size: 12))
                     .foregroundColor(isSelected ? .white.opacity(0.7) : BailColor.textSecondary)
