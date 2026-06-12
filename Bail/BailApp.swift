@@ -46,11 +46,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 // resolved, so every guest gets the right local notification.
                 let changes = try await CloudKitService.shared.fetchEventsDetectingChanges()
                 for event in changes.newlyCancelled {
-                    NotificationService.shared.cancelPending(for: event.id)
-                    NotificationService.shared.scheduleCancellation(for: event)
+                    await NotificationService.shared.cancelPending(for: event.id)
+                    await NotificationService.shared.scheduleCancellation(for: event)
                 }
                 for event in changes.newlyResolvedLocation {
-                    NotificationService.shared.scheduleLocationResolved(for: event)
+                    await NotificationService.shared.scheduleLocationResolved(for: event)
                 }
                 return .newData
             } catch {
