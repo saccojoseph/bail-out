@@ -38,8 +38,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
         let notification = CKNotification(fromRemoteNotificationDictionary: converted)
 
-        let subID = notification?.subscriptionID
-        if subID == "vote-changes" || subID == "event-changes" {
+        let subID = notification?.subscriptionID ?? ""
+        if subID.hasPrefix("vote-") || subID.hasPrefix("event-") {
             do {
                 // Refresh and detect plans that just cancelled (auto via bail
                 // threshold OR manual cancel) and location votes that just

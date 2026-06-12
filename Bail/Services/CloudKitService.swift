@@ -630,43 +630,68 @@ final class CloudKitService: ObservableObject {
 
     // MARK: - Subscribe to vote changes
 
-    /// Creates CloudKit subscriptions so the app gets push notifications when
-    /// votes are cast OR when an event changes (e.g. a plan is cancelled).
+    /// Syncs silent-push subscriptions to the user's current events.
+    ///
+    /// One subscription pair per active event ("vote-<id>" on its votes,
+    /// "event-<id>" on the event record itself) instead of global
+    /// true-predicate subscriptions — a global subscription would push every
+    /// vote by every user worldwide to every device, which iOS punishes by
+    /// throttling silent pushes as the user base grows.
+    ///
+    /// Call after fetchEvents() so the event list is current. Stale
+    /// subscriptions for past/left events are removed; legacy global
+    /// subscriptions from earlier builds are deleted.
     func subscribeToVoteChanges() async {
-        await ensureSubscription(id: "vote-changes", recordType: RecordType.vote,
-                                 predicate: NSPredicate(value: true))
-        // Fires on any event change. We intentionally use a true predicate
-        // (no index dependency); the cancellation-detection filter ensures we
-        // only ever notify for events that genuinely just became cancelled.
-        await ensureSubscription(id: "event-changes", recordType: RecordType.event,
-                                 predicate: NSPredicate(value: true))
-    }
+        let legacyIds: Set<String> = ["vote-changes", "event-changes"]
 
-    /// Creates a silent-push subscription for a record type if it doesn't exist.
-    private func ensureSubscription(id: String, recordType: String, predicate: NSPredicate) async {
-        // Check if subscription already exists
-        do {
-            _ = try await database.subscription(for: id)
-            return // Already subscribed
-        } catch {
-            // Doesn't exist yet, create it
+        let existing = (try? await database.allSubscriptions()) ?? []
+        let existingIds = Set(existing.map(\.subscriptionID))
+
+        // Desired subscriptions: active events that haven't happened yet
+        let cutoff = Date().addingTimeInterval(-3 * 3600)
+        let activeEvents = events.filter { $0.status != .cancelled && $0.scheduledAt > cutoff }
+        var desired: [String: CKQuerySubscription] = [:]
+        for event in activeEvents {
+            let eventRef = CKRecord.Reference(
+                recordID: CKRecord.ID(recordName: event.id),
+                action: .deleteSelf
+            )
+            desired["vote-\(event.id)"] = CKQuerySubscription(
+                recordType: RecordType.vote,
+                predicate: NSPredicate(format: "eventId == %@", eventRef),
+                subscriptionID: "vote-\(event.id)",
+                options: [.firesOnRecordCreation, .firesOnRecordUpdate]
+            )
+            desired["event-\(event.id)"] = CKQuerySubscription(
+                recordType: RecordType.event,
+                predicate: NSPredicate(format: "recordID == %@", CKRecord.ID(recordName: event.id)),
+                subscriptionID: "event-\(event.id)",
+                options: [.firesOnRecordUpdate]
+            )
         }
 
-        let subscription = CKQuerySubscription(
-            recordType: recordType,
-            predicate: predicate,
-            subscriptionID: id,
-            options: [.firesOnRecordCreation, .firesOnRecordUpdate]
-        )
+        // Create missing subscriptions
+        for (id, subscription) in desired where !existingIds.contains(id) {
+            let info = CKSubscription.NotificationInfo()
+            info.shouldSendContentAvailable = true // Silent push
+            subscription.notificationInfo = info
+            do {
+                try await database.save(subscription)
+            } catch {
+                print("[CloudKit] Subscription error (\(id)): \(error.localizedDescription)")
+            }
+        }
 
-        let info = CKSubscription.NotificationInfo()
-        info.shouldSendContentAvailable = true // Silent push
-        subscription.notificationInfo = info
-
-        do {
-            try await database.save(subscription)
-        } catch {
-            print("[CloudKit] Subscription error (\(id)): \(error.localizedDescription)")
+        // Remove legacy globals and stale per-event subscriptions
+        for sub in existing {
+            let id = sub.subscriptionID
+            let isLegacy = legacyIds.contains(id)
+            let isStalePerEvent = !isLegacy
+                && (id.hasPrefix("vote-") || id.hasPrefix("event-"))
+                && desired[id] == nil
+            if isLegacy || isStalePerEvent {
+                _ = try? await database.deleteSubscription(withID: id)
+            }
         }
     }
 

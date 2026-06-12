@@ -306,6 +306,8 @@ struct ContentView: View {
                 if let index = cloudKit.events.firstIndex(where: { $0.id == localEvent.id }) {
                     cloudKit.events[index] = cloudEvent
                 }
+                // Subscribe to pushes for the new event
+                await cloudKit.subscribeToVoteChanges()
             } catch {
                 print("[CloudKit] createEvent failed: \(error)")
                 if let ckError = error as? CKError {
@@ -729,6 +731,8 @@ struct ContentView: View {
                 }
                 selectedEvent = event
                 screen = .eventDetail
+                // Subscribe to pushes for the joined event
+                await cloudKit.subscribeToVoteChanges()
             } catch {
                 // Only surface the error if the event truly isn't available —
                 // a concurrent fetch may have already loaded it (avoids
