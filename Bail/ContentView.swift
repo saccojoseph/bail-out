@@ -267,6 +267,7 @@ struct ContentView: View {
                     (name: $0.name, address: $0.address)
                 }
                 let cloudEvent = try await cloudKit.createEvent(
+                    eventId: localEvent.id,
                     title: localEvent.title,
                     scheduledAt: localEvent.scheduledAt,
                     location: localEvent.location,

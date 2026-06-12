@@ -74,7 +74,12 @@ final class CloudKitService: ObservableObject {
     // MARK: - Create Event
 
     /// Saves a new event + guest records to CloudKit. Returns the created Event.
+    /// `eventId` (when provided) is used as the CloudKit record name. This is
+    /// CRITICAL for invite links: the SMS is composed with the local event ID
+    /// before the CloudKit save completes, so the saved record MUST use that
+    /// same ID or every invite link sent at creation time points nowhere.
     func createEvent(
+        eventId: String? = nil,
         title: String,
         scheduledAt: Date,
         location: String?,
@@ -91,8 +96,17 @@ final class CloudKitService: ObservableObject {
             throw CloudKitError.notAuthenticated
         }
 
-        // 1. Create the event record
-        let eventRecord = CKRecord(recordType: RecordType.event)
+        // 1. Create the event record (reusing the local ID as the record name
+        //    so already-sent invite links resolve to this record)
+        let eventRecord: CKRecord
+        if let eventId, !eventId.isEmpty {
+            eventRecord = CKRecord(
+                recordType: RecordType.event,
+                recordID: CKRecord.ID(recordName: eventId)
+            )
+        } else {
+            eventRecord = CKRecord(recordType: RecordType.event)
+        }
         eventRecord["title"] = title
         eventRecord["scheduledAt"] = scheduledAt
         eventRecord["location"] = location
