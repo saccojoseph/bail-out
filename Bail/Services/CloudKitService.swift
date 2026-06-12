@@ -1,6 +1,7 @@
 import CloudKit
 import Combine
 import Contacts
+import CryptoKit
 import Foundation
 
 // MARK: - Record type constants
@@ -205,48 +206,81 @@ final class CloudKitService: ObservableObject {
         return event
     }
 
+    // MARK: - Anonymous voter IDs
+    //
+    // BailVote records live in a world-readable public database. Storing the
+    // raw iCloud record name would let anyone with API access map votes to
+    // people. Instead we store a salted hash: the app can always recompute
+    // its own hash to find/update its vote, but the stored value cannot be
+    // reversed to an identity, and recordNames visible elsewhere (creatorId)
+    // can't be casually tested against it without also extracting the pepper
+    // from the app binary.
+
+    private static let votePepper = "bail.out-vote-pepper-7f3a9c"
+
+    /// Deterministic anonymous identifier for the current user's vote on an event.
+    private func anonymousVoterId(eventId: String) -> String? {
+        guard let recordName = userRecordID?.recordName else { return nil }
+        let input = "\(Self.votePepper):\(recordName):\(eventId)"
+        let digest = SHA256.hash(data: Data(input.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Finds the current user's vote record for an event, checking the hashed
+    /// ID first and falling back to the legacy raw record name (pre-1.1 votes).
+    /// Legacy records are migrated to the hashed ID on sight.
+    private func findOwnVoteRecord(eventId: String) async -> CKRecord? {
+        guard let voterID = userRecordID,
+              let hashedId = anonymousVoterId(eventId: eventId) else { return nil }
+        let eventRef = CKRecord.Reference(
+            recordID: CKRecord.ID(recordName: eventId),
+            action: .deleteSelf
+        )
+        for candidateId in [hashedId, voterID.recordName] {
+            do {
+                let predicate = NSPredicate(
+                    format: "eventId == %@ AND voterId == %@", eventRef, candidateId
+                )
+                let query = CKQuery(recordType: RecordType.vote, predicate: predicate)
+                let (results, _) = try await database.records(matching: query)
+                if let record = results.first.flatMap({ try? $0.1.get() }) {
+                    if candidateId != hashedId {
+                        // Migrate legacy raw-ID vote to the anonymous hash
+                        record["voterId"] = hashedId
+                        _ = try? await database.save(record)
+                    }
+                    return record
+                }
+            } catch {
+                // Schema may not exist yet (first ever vote) — treat as no record
+                print("[CloudKit] Vote query failed: \(error.localizedDescription)")
+            }
+        }
+        return nil
+    }
+
     // MARK: - Cast Vote
 
     /// Records a vote for the current user on an event.
     /// Returns the updated Event with recalculated summary.
     func castVote(eventId: String, choice: VoteChoice) async throws -> Event {
-        guard let voterID = userRecordID else {
+        guard userRecordID != nil,
+              let hashedId = anonymousVoterId(eventId: eventId) else {
             throw CloudKitError.notAuthenticated
         }
 
-        // Check if user already has a vote record for this event.
-        // Wrap in try-catch: if BailVote schema doesn't exist yet (first ever vote
-        // on this container), the query throws — treat that as "no existing vote".
-        var existingVoteRecord: CKRecord? = nil
-        do {
-            let predicate = NSPredicate(
-                format: "eventId == %@ AND voterId == %@",
-                CKRecord.Reference(
-                    recordID: CKRecord.ID(recordName: eventId),
-                    action: .deleteSelf
-                ),
-                voterID.recordName
-            )
-            let query = CKQuery(recordType: RecordType.vote, predicate: predicate)
-            let (existingVotes, _) = try await database.records(matching: query)
-            existingVoteRecord = existingVotes.first.flatMap { try? $0.1.get() }
-        } catch {
-            // Schema doesn't exist yet — first vote will create it
-            print("[CloudKit] Vote query failed (likely first vote): \(error.localizedDescription)")
-        }
-
-        if let existing = existingVoteRecord {
+        if let existing = await findOwnVoteRecord(eventId: eventId) {
             // Update existing vote
             existing["choice"] = choice.rawValue
             try await database.save(existing)
         } else {
-            // Create new vote
+            // Create new vote with the anonymous voter ID
             let voteRecord = CKRecord(recordType: RecordType.vote)
             voteRecord["eventId"] = CKRecord.Reference(
                 recordID: CKRecord.ID(recordName: eventId),
                 action: .deleteSelf
             )
-            voteRecord["voterId"] = voterID.recordName
+            voteRecord["voterId"] = hashedId
             voteRecord["choice"] = choice.rawValue
             try await database.save(voteRecord)
         }
@@ -329,21 +363,9 @@ final class CloudKitService: ObservableObject {
             loadedEvents.append(event)
         }
 
-        // 4. Fetch user's votes for these events
+        // 4. Fetch user's votes for these events (hashed ID, with legacy fallback)
         for event in loadedEvents {
-            let votePredicate = NSPredicate(
-                format: "eventId == %@ AND voterId == %@",
-                CKRecord.Reference(
-                    recordID: CKRecord.ID(recordName: event.id),
-                    action: .deleteSelf
-                ),
-                userID.recordName
-            )
-            let voteQuery = CKQuery(recordType: RecordType.vote, predicate: votePredicate)
-            let (voteResults, _) = try await database.records(matching: voteQuery)
-
-            if let (_, voteResult) = voteResults.first,
-               let voteRecord = try? voteResult.get(),
+            if let voteRecord = await findOwnVoteRecord(eventId: event.id),
                let choiceRaw = voteRecord["choice"] as? String,
                let choice = VoteChoice(rawValue: choiceRaw) {
                 userVotes[event.id] = choice
