@@ -145,11 +145,11 @@ WHAT IT IS:
 A group-plans app where friends anonymously vote whether to keep or cancel a plan. If enough people bail, the plan auto-cancels with a neutral message. The core design promise is that nobody — not even the event creator — can see who voted what.
 
 HOW TO TEST:
-1. Sign in with Apple on the splash screen (uses iCloud automatically).
-2. Complete the 3-screen onboarding tutorial.
+1. Tap "Get Started" on the opening screen. The app uses your iCloud account automatically (no Sign in with Apple, no password). There is no separate login screen.
+2. Enter a first name, then complete the 3-screen onboarding tutorial.
 3. Tap the "+" button to create a plan. Pick a title, date, and a few contacts.
 4. On the bail rules screen, leave "Enable bail voting" ON.
-5. Tap "Send Invites" — iMessage will open with a pre-filled message and a bail:// deep link.
+5. Tap "Send Invites" — iMessage will open with a pre-filled message and a universal link (https://saccojoseph.github.io/e/?id=...).
 
 (If you're testing without contacts permission, just skip the invite step — the event will save without guests and you can still see the full event UI.)
 
@@ -170,7 +170,7 @@ Contact: bail.out.app.official@gmail.com
 
 ## Demo Account (App Review)
 
-Apple sometimes wants a demo account. Since bail.out uses Sign in with Apple via iCloud, **you don't need to provide one** — the reviewer's own iCloud handles it. Check the box that says **"Sign-in not required"** OR **"This app uses Sign in with Apple"** in App Store Connect.
+bail.out has NO login screen and does NOT use Sign in with Apple. It reads the device's existing iCloud account silently via CloudKit. In App Store Connect, leave the demo account fields blank and check **"Sign-in not required."** Do not claim Sign in with Apple anywhere in metadata — the app does not present it.
 
 ---
 
